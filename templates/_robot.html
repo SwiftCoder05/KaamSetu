@@ -1,0 +1,22 @@
+{# Friendly waving robot (pure SVG, animated by CSS). Param: cls #}
+<svg class="ai-robot {{ cls }}" viewBox="0 0 120 130" role="img" aria-label="A friendly robot waving hello">
+    <ellipse cx="60" cy="124" rx="30" ry="4" class="r-shadow"/>
+    <!-- antenna -->
+    <line x1="60" y1="14" x2="60" y2="26" class="r-line"/>
+    <circle cx="60" cy="11" r="5" class="r-bulb"/>
+    <!-- head -->
+    <rect x="30" y="26" width="60" height="44" rx="16" class="r-head"/>
+    <rect x="38" y="34" width="44" height="28" rx="11" class="r-face"/>
+    <g class="r-eyes"><circle cx="51" cy="47" r="4" class="r-eye"/><circle cx="69" cy="47" r="4" class="r-eye"/></g>
+    <path d="M52 55 Q60 61 68 55" class="r-smile"/>
+    <circle cx="44" cy="54" r="2.6" class="r-cheek"/><circle cx="76" cy="54" r="2.6" class="r-cheek"/>
+    <!-- body -->
+    <rect x="38" y="74" width="44" height="38" rx="12" class="r-body"/>
+    <circle cx="60" cy="90" r="6" class="r-heart"/>
+    <!-- left arm (resting) -->
+    <path d="M38 82 Q26 92 30 104" class="r-arm"/>
+    <!-- right arm (waving) -->
+    <g class="r-wave"><path d="M82 82 Q96 74 100 60" class="r-arm"/><circle cx="101" cy="56" r="5.5" class="r-hand"/></g>
+    <!-- legs -->
+    <rect x="45" y="111" width="10" height="10" rx="4" class="r-leg"/><rect x="65" y="111" width="10" height="10" rx="4" class="r-leg"/>
+  </svg>

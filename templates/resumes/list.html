@@ -1,0 +1,33 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Resume studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">Resume studio</div><h1>Your resumes</h1><p>Keep a clean master copy, make versions for different roles, and export to PDF or Word.</p></div>
+</div>
+
+<div class="grid grid-2" style="margin-bottom:1rem">
+  <form method="post" action="{% url 'resume_new' %}" enctype="multipart/form-data" class="card stack">{% csrf_token %}
+    <h2>{% icon 'upload' 18 %} Import a resume</h2>
+    <p class="small muted">PDF, DOCX, DOC or TXT, up to {{ max_mb }} MB. Your original file is kept unchanged, and the imported text becomes a locked first version you can branch from.</p>
+    <input type="text" name="title" placeholder="Title (optional), e.g. Backend resume" maxlength="160" aria-label="Title">
+    <input type="file" name="file" accept=".pdf,.docx,.doc,.txt" required aria-label="Resume file">
+    <div><button class="btn primary">Import</button></div>
+  </form>
+  <form method="post" action="{% url 'resume_new' %}" class="card stack">{% csrf_token %}
+    <h2>{% icon 'plus' 18 %} Start from scratch</h2>
+    <p class="small muted">A clean, single-column, ATS-friendly layout. Fill in sections at your own pace.</p>
+    <input type="text" name="title" placeholder="Title, e.g. My resume" maxlength="160" aria-label="Title">
+    <div><button class="btn">Create blank resume</button></div>
+  </form>
+</div>
+
+<a class="card card-link all-resumes" href="{% url 'resume_all' %}">
+  <span class="stat-icon tone-indigo">{% icon 'file' 18 %}</span>
+  <span class="grow">
+    <strong>View all resumes</strong>
+    <span class="small muted">{% if count %}{{ count }} saved{% if latest %} · last updated {{ latest.updated_at|timesince }} ago{% endif %}{% else %}None yet. Import or create one above.{% endif %}</span>
+  </span>
+  {% icon 'arrow' 16 %}
+</a>
+{% endblock %}

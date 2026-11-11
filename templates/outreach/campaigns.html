@@ -1,0 +1,33 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Campaigns{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">Tech job hunt</div><h1>Campaigns</h1><p>Each campaign sends one template to a set of contacts, with your resume attached if you choose.</p></div>
+  <a class="btn primary" href="{% url 'campaign_new' %}">{% icon 'plus' 16 %} New campaign</a>
+</div>
+{% if campaigns %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Campaign</th><th>Status</th><th>Progress</th><th>Created</th></tr></thead>
+    <tbody>
+    {% for c in campaigns %}
+      <tr style="cursor:pointer" onclick="location.href='{% url 'campaign_detail' c.pk %}'">
+        <td><a href="{% url 'campaign_detail' c.pk %}" style="font-weight:600;text-decoration:none;color:inherit">{{ c.name }}</a></td>
+        <td><span class="badge dot {% status_tone c.status %}">{{ c.status }}</span>{% if c.status == 'paused' %}<div class="tiny muted">{{ c.pause_reason|pause_text }}</div>{% endif %}</td>
+        <td class="small" style="min-width:180px"><div class="progress slim" aria-hidden="true"><span class="p-ok" style="width:{{ c.c.accepted|pct:c.c.total }}%"></span><span class="p-bad" style="width:{{ c.c.failed|pct:c.c.total }}%"></span></div><div class="tiny muted" style="margin-top:.3rem">{{ c.c.accepted }} sent · {{ c.c.failed }} failed · {{ c.c.total }} total</div></td>
+        <td class="small muted nowrap">{{ c.created_at|date:"d M Y" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty">
+  <span class="empty-icon tone-rose">{% icon 'send' 24 %}</span>
+  <h3>No campaigns yet</h3>
+  <p>You'll need at least one template and one contact. Nothing is sent until you review and confirm.</p>
+  <a class="btn primary" href="{% url 'campaign_new' %}">Create a campaign</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Templates{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">Tech job hunt</div><h1>Email templates</h1><p>Pick a starting point, then shape it in the editor. Placeholders like <span class="ph">&#123;&#123;first_name&#125;&#125;</span> fill in for each recipient.</p></div>
+  <form method="post" action="{% url 'template_create' %}">{% csrf_token %}<button class="btn primary">{% icon 'plus' 16 %} Blank template</button></form>
+</div>
+
+{% if mine %}
+<h2 style="margin-bottom:.8rem">Your templates</h2>
+<div class="grid grid-3" style="margin-bottom:2.2rem">
+  {% for t in mine %}
+  <a class="card card-link tpl-card" href="{% url 'template_edit' t.pk %}">
+    <div class="row between"><h3>{{ t.name }}</h3>{% if t.role_label %}<span class="badge info">{{ t.role_label }}</span>{% endif %}</div>
+    <div class="paper"><div class="subj">{{ t.subject|highlight_placeholders }}</div>{{ t.body|excerpt:220|highlight_placeholders }}</div>
+    <div class="row between small muted"><span>Edited {{ t.updated_at|timesince }} ago</span><span>Open {% icon 'arrow' 14 %}</span></div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2 style="margin-bottom:.3rem">{% icon 'sparkles' 18 %} Start from a role</h2>
+<p class="small muted" style="margin-bottom:.9rem">Each starter makes your own editable copy.</p>
+<div class="grid grid-3">
+  {% for i, s in starters %}
+  <form method="post" action="{% url 'template_create' %}" class="card tpl-card">{% csrf_token %}
+    <input type="hidden" name="starter" value="{{ i }}">
+    <div><h3>{{ s.name }}</h3><p class="small muted" style="margin-top:.2rem">{{ s.blurb }}</p></div>
+    <div class="paper"><div class="subj">{{ s.subject|highlight_placeholders }}</div>{{ s.body|excerpt:200|highlight_placeholders }}</div>
+    <button class="btn use-btn" style="width:100%">{% icon 'plus' 14 %} Use this template</button>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}

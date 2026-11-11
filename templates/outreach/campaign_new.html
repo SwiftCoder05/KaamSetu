@@ -1,0 +1,129 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}New campaign{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="small" href="{% url 'campaign_list' %}">← Campaigns</a><h1 style="margin-top:.4rem">New campaign</h1><p>Choose who to write to and what to say. You'll see every email before anything is sent.</p></div>
+</div>
+
+{% if not templates or not contacts %}
+  <div class="empty">
+    <span class="empty-icon tone-saffron">{% icon 'zap' 24 %}</span>
+    <h3>A couple of things first</h3>
+    <p>{% if not templates %}You need an email template. {% endif %}{% if not contacts %}You need at least one contact (that isn't marked do-not-contact).{% endif %}</p>
+    <div class="row" style="justify-content:center">
+      {% if not templates %}<a class="btn primary" href="{% url 'template_gallery' %}">Pick a template</a>{% endif %}
+      {% if not contacts %}<a class="btn primary" href="{% url 'contact_import' %}">Add contacts</a>{% endif %}
+    </div>
+  </div>
+{% else %}
+<form method="post" enctype="multipart/form-data" class="stack" style="--gap:1.25rem">{% csrf_token %}
+  <section class="card stack">
+    <h2><span class="muted">1.</span> Name and template</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="name">Campaign name <span class="muted">(optional)</span></label>
+        <input id="name" name="name" maxlength="160" value="{{ form.name|default:'' }}" placeholder="e.g. Bangalore backend roles">
+      </div>
+      <div class="field">
+        <label for="template">Template</label>
+        <select id="template" name="template" required>
+          <option value="">Choose…</option>
+          {% for t in templates %}<option value="{{ t.pk }}" {% if form.template|stringformat:"s" == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+        </select>
+        {% if errors.template %}<div class="err">{{ errors.template }}</div>{% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card stack">
+    <div class="row between"><h2><span class="muted">2.</span> Recipients</h2><span class="badge info" id="picked">0 selected</span></div>
+    {% if errors.contacts %}<div class="alert bad small">{{ errors.contacts }}</div>{% endif %}
+    <input type="search" id="filter" placeholder="Filter by email, name or company" aria-label="Filter contacts">
+    <div class="table-wrap" style="max-height:340px">
+      <table>
+        <thead><tr><th style="width:36px"><input type="checkbox" data-select-all="contacts" aria-label="Select all shown"></th><th>Email</th><th>Name</th><th>Company</th></tr></thead>
+        <tbody id="contact-rows">
+        {% for c in contacts %}
+          <tr data-search="{{ c.email|lower }} {{ c.name|lower }} {{ c.company|lower }}">
+            <td><input type="checkbox" name="contacts" value="{{ c.pk }}" aria-label="{{ c.email }}" {% if c.pk|stringformat:"s" in picked_ids %}checked{% endif %}></td>
+            <td class="mono small">{{ c.email }}</td><td>{{ c.name|default:"—" }}</td><td>{{ c.company|default:"—" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="tiny muted">Contacts marked do-not-contact are hidden here and are never emailed.</p>
+  </section>
+
+  <section class="card stack" id="resume-choice">
+    <h2><span class="muted">3.</span> Attach a resume <span class="muted small" style="font-family:var(--font-sans)">(recommended)</span></h2>
+    {% if errors.resume %}<div class="alert bad small">{{ errors.resume }}</div>{% endif %}
+    <div class="choice-grid" role="radiogroup" aria-label="Resume attachment">
+      <label class="choice">
+        <input type="radio" name="resume_source" value="upload" {% if resume_source == "upload" %}checked{% endif %}>
+        <span class="stat-icon tone-indigo">{% icon 'upload' 16 %}</span>
+        <span><strong>Upload a file</strong><span class="small muted">PDF or Word, sent exactly as is</span></span>
+      </label>
+      <label class="choice">
+        <input type="radio" name="resume_source" value="studio" {% if resume_source == "studio" %}checked{% endif %}>
+        <span class="stat-icon tone-green">{% icon 'file' 16 %}</span>
+        <span><strong>From resume studio</strong><span class="small muted">{% if versions %}{{ versions|length }} version{{ versions|length|pluralize }} available{% else %}No resumes there yet{% endif %}</span></span>
+      </label>
+      <label class="choice">
+        <input type="radio" name="resume_source" value="none" {% if resume_source == "none" %}checked{% endif %}>
+        <span class="stat-icon tone-rose">{% icon 'x' 16 %}</span>
+        <span><strong>No attachment</strong><span class="small muted">Send the email only</span></span>
+      </label>
+    </div>
+
+    <div data-panel="upload" class="stack" style="--gap:.5rem">
+      <label class="dropzone" for="resume_file" style="display:block;cursor:pointer">
+        <strong>Choose your resume file</strong>
+        <span class="small muted" style="display:block;margin-top:.2rem">PDF, DOCX or DOC, up to {{ max_mb }} MB</span>
+        <input type="file" id="resume_file" name="resume_file" accept=".pdf,.docx,.doc" style="margin-top:.6rem">
+      </label>
+      <p class="tiny muted">Every recipient gets this exact file. It is stored with the campaign only, not added to the resume studio.</p>
+    </div>
+
+    <div data-panel="studio" class="stack" style="--gap:.5rem">
+      {% if versions %}
+        <select name="resume_version" aria-label="Resume version">
+          {% for v in versions %}<option value="{{ v.pk }}" {% if form.resume_version|stringformat:"s" == v.pk|stringformat:"s" %}selected{% endif %}>{{ v.resume.title }} — {{ v.label }}</option>{% endfor %}
+        </select>
+        <p class="tiny muted">Attached as a PDF, generated once when you confirm, so every recipient gets the same file you previewed.</p>
+      {% else %}
+        <div class="alert info small"><div>Your resume studio is empty. Choose <strong>Upload a file</strong> above, or <a href="{% url 'resume_list' %}">build one in the resume studio</a> first.</div></div>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="row end">
+    <a class="btn ghost" href="{% url 'campaign_list' %}">Cancel</a>
+    <button class="btn primary lg">Preview emails {% icon 'arrow' 16 %}</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    const rows = document.querySelectorAll("#contact-rows tr");
+    const count = () => (document.getElementById("picked").textContent = `${document.querySelectorAll('input[name=contacts]:checked').length} selected`);
+    document.getElementById("filter")?.addEventListener("input", (e) => {
+      const q = e.target.value.trim().toLowerCase();
+      rows.forEach((r) => (r.style.display = !q || r.dataset.search.includes(q) ? "" : "none"));
+    });
+    document.addEventListener("change", count);
+    count();
+
+    // Resume choice: show only the panel for the selected option.
+    const showPanel = () => {
+      const picked = document.querySelector("input[name=resume_source]:checked")?.value;
+      document.querySelectorAll("#resume-choice [data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== picked));
+    };
+    document.querySelectorAll("input[name=resume_source]").forEach((r) => r.addEventListener("change", showPanel));
+    showPanel();
+  })();
+</script>
+{% endblock %}

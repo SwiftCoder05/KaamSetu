@@ -1,0 +1,12 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}UGC outreach{% endblock %}
+{% block content %}
+<div class="page-head"><div><div class="eyebrow">Creators</div><h1>UGC creator outreach</h1><p>Pitch brands for user-generated content deals.</p></div></div>
+<div class="empty">
+  <span class="empty-icon tone-saffron">{% icon 'video' 24 %}</span>
+  <h3>Coming soon</h3>
+  <p>Brand contact lists, pitch templates with portfolio links, and rate-card attachments will live here. It will reuse the same contacts, templates and safe sending you already have.</p>
+  <a class="btn" href="{% url 'dashboard' %}">Back to dashboard</a>
+</div>
+{% endblock %}

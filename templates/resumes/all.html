@@ -1,0 +1,26 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}All resumes{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="small" href="{% url 'resume_list' %}">{% icon 'back' 12 %} Resume studio</a><h1 style="margin-top:.4rem">All resumes</h1><p>{{ resumes|length }} saved. Open one to edit it, tailor it to a job or download it.</p></div>
+  <a class="btn primary" href="{% url 'resume_list' %}">{% icon 'plus' 15 %} New resume</a>
+</div>
+{% if resumes %}
+<div class="grid grid-3">
+  {% for r in resumes %}
+  <a class="card card-link stack" style="--gap:.5rem" href="{% url 'resume_workspace' r.pk %}">
+    <div class="row between"><h3>{{ r.title }}</h3>{% icon 'arrow' 16 %}</div>
+    <div class="small muted">{{ r.versions.count }} version{{ r.versions.count|pluralize }} · updated {{ r.updated_at|timesince }} ago</div>
+    {% if r.original_name %}<div class="tiny muted">{% icon 'lock' 12 %} Original: {{ r.original_name }}</div>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <h3>No resumes yet</h3>
+  <p>Import your current resume or start from a blank one in the resume studio.</p>
+  <a class="btn primary" href="{% url 'resume_list' %}">Go to resume studio</a>
+</div>
+{% endif %}
+{% endblock %}

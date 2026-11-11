@@ -1,0 +1,108 @@
+{% extends "app.html" %}
+{% load kaam static %}
+{% block title %}{{ c.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{% url 'campaign_list' %}">← Campaigns</a>
+    <h1 style="margin-top:.4rem">{{ c.name }}</h1>
+    <p>{{ counts.total }} recipient{{ counts.total|pluralize }} · from {{ c.sender_name }}{% if conn %} &lt;{{ conn.email }}&gt;{% endif %} · {% if c.resume_version %}{% icon 'file' 14 %} {{ c.resume_version.resume.title }} — {{ c.resume_version.label }}{% elif attachment %}{% icon 'file' 14 %} {{ attachment.filename }}{% else %}no attachment{% endif %}</p>
+  </div>
+  <span class="badge dot {% status_tone c.status %}" id="status-badge" style="font-size:.85rem">{{ c.status }}</span>
+</div>
+
+{% if c.status == 'draft' %}
+  {# ───────────── PREVIEW & CONFIRM ───────────── #}
+  {% if not conn %}
+    <div class="alert warn" style="margin-bottom:1rem">{% icon 'mail' %}<div class="grow"><strong>Connect Gmail to send</strong>Your draft is saved. Connect Gmail with an app password, then come back here.</div><a class="btn sm" href="{% url 'settings' %}">Connect</a></div>
+  {% endif %}
+  {% if unfilled %}
+    <div class="alert bad" style="margin-bottom:1rem"><div><strong>{{ unfilled }} email{{ unfilled|pluralize }} still contain{{ unfilled|pluralize:"s," }} a &#123;&#123;placeholder&#125;&#125;</strong>Those contacts are missing a value (for example a name). They will be marked failed instead of sent. Add a fallback like <code>&#123;&#123;first_name|there&#125;&#125;</code> in the template, or fill in the contact, then create the campaign again.</div></div>
+  {% endif %}
+  <div class="editor-layout">
+    <section class="card">
+      <div class="card-head"><h2>{% icon 'eye' 16 %} Preview</h2>
+        <select id="pick-preview" style="width:auto;max-width:100%" aria-label="Preview recipient">
+          {% for r in recipients %}<option value="{{ forloop.counter0 }}">{{ r.email }}{% if r.unfilled %} ⚠{% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      {% for r in recipients %}
+      <article class="preview-item" data-i="{{ forloop.counter0 }}" {% if not forloop.first %}hidden{% endif %}>
+        <div class="small muted">To: {{ r.name|default:"" }} &lt;{{ r.email }}&gt;</div>
+        <div style="font-weight:600;margin:.35rem 0 .9rem">{{ r.subject|highlight_placeholders }}</div>
+        <div class="email-preview" style="border-top:1px solid var(--line);padding-top:.9rem">{{ r.body|safe_email_html }}</div>
+        {% if c.resume_version %}<div class="row" style="margin-top:.8rem"><span class="badge info">{% icon 'file' 12 %} PDF attachment</span></div>{% elif attachment %}<div class="row" style="margin-top:.8rem"><span class="badge info">{% icon 'file' 12 %} {{ attachment.filename }} · {{ attachment.size|filesizeformat }}</span></div>{% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    <aside class="stack">
+      <section class="card stack">
+        <h2>Ready to send?</h2>
+        <ul class="small" style="margin:0;padding-left:1.1rem;display:grid;gap:.3rem">
+          <li>{{ counts.total }} email{{ counts.total|pluralize }}, sent in small batches with short gaps.</li>
+          <li>Daily limit: {{ sent_24h }} of {{ daily_limit }} used in the last 24 h. If the limit is reached the campaign pauses and you can resume later.</li>
+          <li>“Accepted” means Gmail took the message for delivery. Replies and bounces arrive in your Gmail inbox.</li>
+        </ul>
+        <form method="post" action="{% url 'campaign_confirm' c.pk %}" id="confirm-form" class="stack" data-has-resume="{% if c.resume_version or attachment %}1{% else %}0{% endif %}">{% csrf_token %}
+          <label class="row small" style="align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" name="confirm" value="yes" required style="margin-top:2px"> <span>I've reviewed these emails and want to send them from my Gmail account.</span></label>
+          <button class="btn primary lg" {% if not conn %}disabled{% endif %}>{% icon 'send' 16 %} Send {{ counts.total }} email{{ counts.total|pluralize }}</button>
+        </form>
+      </section>
+      <form method="post" action="{% url 'campaign_action' c.pk 'delete' %}" data-confirm="Discard this draft?">{% csrf_token %}
+        <button class="btn ghost sm danger">{% icon 'trash' 14 %} Discard draft</button>
+      </form>
+    </aside>
+  </div>
+{% else %}
+  {# ───────────── SENDING / RESULTS ───────────── #}
+  <div id="runner" data-send-url="{% url 'campaign_send' c.pk %}" data-status="{{ c.status }}" data-pause="{{ c.pause_reason }}" data-autostart="{% if autostart %}1{% endif %}">
+    <div class="alert warn" id="pause-box" {% if c.status != 'paused' %}hidden{% endif %} style="margin-bottom:1rem"><div><strong>Paused</strong><span id="pause-text">{{ c.pause_reason|pause_text }}</span></div></div>
+    <div class="alert info" id="live-box" hidden style="margin-bottom:1rem"><div><strong>Sending…</strong>Keep this page open, or run <code>python manage.py run_sender</code> to send in the background.</div></div>
+
+    <div class="grid grid-4" style="margin-bottom:1rem">
+      <div class="card stat"><div class="num" id="n-accepted">{{ counts.accepted }}</div><div class="lbl">Accepted by Gmail</div></div>
+      <div class="card stat"><div class="num" id="n-queued">{{ counts.queued }}</div><div class="lbl">Waiting</div></div>
+      <div class="card stat"><div class="num" id="n-failed">{{ counts.failed }}</div><div class="lbl">Failed</div></div>
+      <div class="card stat"><div class="num" id="n-skipped">{{ counts.skipped }}</div><div class="lbl">Skipped</div></div>
+    </div>
+    <div class="progress" style="margin-bottom:1rem" aria-hidden="true">
+      <span class="p-ok" id="bar-ok"></span><span class="p-bad" id="bar-bad"></span><span class="p-skip" id="bar-skip"></span>
+    </div>
+    <div class="row" style="margin-bottom:1.25rem">
+      {% if c.status == 'paused' %}
+        <form method="post" action="{% url 'campaign_action' c.pk 'resume' %}">{% csrf_token %}<button class="btn primary">{% icon 'play' 14 %} Resume sending</button></form>
+      {% endif %}
+      {% if c.status == 'confirmed' or c.status == 'sending' %}
+        <button class="btn primary" id="start-btn" type="button">{% icon 'play' 14 %} Continue sending</button>
+        <form method="post" action="{% url 'campaign_action' c.pk 'pause' %}">{% csrf_token %}<button class="btn">{% icon 'pause' 14 %} Pause</button></form>
+      {% endif %}
+      {% if counts.failed %}
+        <form method="post" action="{% url 'campaign_action' c.pk 'retry' %}" data-confirm="Retry the failed emails? Check the errors first: interrupted sends may already have been delivered.">{% csrf_token %}<button class="btn">{% icon 'refresh' 14 %} Retry failed</button></form>
+      {% endif %}
+      {% if c.status != 'completed' and c.status != 'cancelled' %}
+        <form method="post" action="{% url 'campaign_action' c.pk 'cancel' %}" data-confirm="Cancel this campaign? Emails not yet sent will never be sent.">{% csrf_token %}<button class="btn danger">Cancel campaign</button></form>
+      {% else %}
+        <form method="post" action="{% url 'campaign_action' c.pk 'delete' %}" data-confirm="Delete this campaign and its send history?">{% csrf_token %}<button class="btn ghost danger">{% icon 'trash' 14 %} Delete</button></form>
+      {% endif %}
+    </div>
+
+    <div class="table-wrap" style="max-height:60vh">
+      <table>
+        <thead><tr><th>Recipient</th><th>Subject</th><th>Status</th><th>Details</th></tr></thead>
+        <tbody>
+        {% for r in recipients %}
+          <tr id="r-{{ r.pk }}">
+            <td class="mono small">{{ r.email }}</td>
+            <td class="small">{{ r.subject|truncatechars:60 }}</td>
+            <td><span class="badge dot {% status_tone r.status %}" data-status>{{ r.status }}</span></td>
+            <td class="small muted" data-error>{{ r.error }}{% if r.status == 'accepted' %}{{ r.sent_at|date:"d M, H:i" }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="tiny muted" style="margin-top:.8rem">“Accepted” means Gmail accepted the message for delivery. It does not prove the email reached the inbox or was read.</p>
+  </div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/campaign.js' %}"></script>{% endblock %}

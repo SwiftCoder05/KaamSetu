@@ -1,0 +1,36 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Import contacts{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="small" href="{% url 'contact_list' %}">← Contacts</a><h1 style="margin-top:.4rem">Add contacts</h1><p>Nothing is saved until you review the list on the next step.</p></div>
+</div>
+<div class="grid grid-2">
+  <form method="post" class="card stack" action="{% url 'contact_import' %}">{% csrf_token %}
+    <h2>Paste emails</h2>
+    <p class="small muted">Separate with commas, spaces or new lines. <code>Name &lt;email@company.com&gt;</code> also works.</p>
+    <textarea name="pasted" rows="10" placeholder="priya@acmelabs.com, rahul@startup.io&#10;Ananya Iyer <ananya@bigcorp.com>" aria-label="Pasted emails">{{ pasted }}</textarea>
+    <div><button class="btn primary">Review list {% icon 'arrow' 16 %}</button></div>
+  </form>
+  <form method="post" enctype="multipart/form-data" class="card stack" action="{% url 'contact_import' %}" id="upload-form">{% csrf_token %}
+    <h2>Upload a file</h2>
+    <p class="small muted">CSV, TXT, Excel (XLSX/XLS), Word (DOCX/DOC), PDF, or a screenshot (PNG/JPG). Spreadsheets with <em>name</em>, <em>company</em> and <em>role</em> columns fill those in too.</p>
+    <label class="dropzone" id="dz">
+      <div style="font-weight:600">{% icon 'upload' %}<br>Choose a file or drop it here</div>
+      <div class="small muted" id="dz-name" style="margin-top:.4rem">Up to 5 MB</div>
+      <input type="file" name="file" accept=".csv,.txt,.xlsx,.xls,.docx,.doc,.pdf,.png,.jpg,.jpeg" class="sr-only" id="file" required>
+    </label>
+    <div><button class="btn primary">Read file {% icon 'arrow' 16 %}</button></div>
+    <p class="tiny muted">Screenshots are read with OCR on this server, so check every address it finds.</p>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const dz = document.getElementById("dz"), input = document.getElementById("file"), label = document.getElementById("dz-name");
+  input.addEventListener("change", () => { label.textContent = input.files[0]?.name || "Up to 5 MB"; });
+  ["dragenter", "dragover"].forEach((t) => dz.addEventListener(t, (e) => { e.preventDefault(); dz.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach((t) => dz.addEventListener(t, (e) => { e.preventDefault(); dz.classList.remove("drag"); }));
+  dz.addEventListener("drop", (e) => { if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; input.dispatchEvent(new Event("change")); } });
+</script>
+{% endblock %}

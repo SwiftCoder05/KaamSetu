@@ -1,0 +1,27 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Edit contact{% endblock %}
+{% block content %}
+<div class="page-head"><div><a class="small" href="{% url 'contact_list' %}">← Contacts</a><h1 style="margin-top:.4rem">{{ contact.email }}</h1></div></div>
+<div class="card" style="max-width:640px">
+  <form method="post" class="stack">{% csrf_token %}
+    <div class="form-grid">
+    {% for f in form %}
+      {% if f.name != 'do_not_contact' %}
+      <div class="field">
+        <label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+        {% if f.errors %}<div class="err">{{ f.errors|join:" " }}</div>{% endif %}
+      </div>
+      {% endif %}
+    {% endfor %}
+    </div>
+    <label class="row small">{{ form.do_not_contact }} Do not contact: never include this address in a campaign</label>
+    <div class="row between">
+      <button class="btn primary">Save</button>
+    </div>
+  </form>
+  <form method="post" action="{% url 'contact_delete' contact.pk %}" data-confirm="Delete this contact?" style="margin-top:1rem">{% csrf_token %}
+    <button class="btn danger sm">{% icon 'trash' 14 %} Delete contact</button>
+  </form>
+</div>
+{% endblock %}

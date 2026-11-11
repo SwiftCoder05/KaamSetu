@@ -1,0 +1,9 @@
+{% extends "allauth/layouts/base.html" %}
+{% block body %}
+<div class="auth">
+  {% include "accounts/_auth_side.html" %}
+  <main class="auth-form">
+    <div class="card pad-lg">{% block content %}{% endblock %}</div>
+  </main>
+</div>
+{% endblock %}

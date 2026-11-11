@@ -1,0 +1,82 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">Account</div><h1>Settings</h1><p>Your sender identity, Gmail connection, sending limit and AI preference.</p></div>
+</div>
+
+<div class="grid grid-2">
+  <section class="card">
+    <div class="card-head"><h2>Gmail sending</h2>{% if conn %}<span class="badge ok dot">connected</span>{% else %}<span class="badge warn dot">not connected</span>{% endif %}</div>
+    {% if conn %}
+      <p>Emails are sent from <strong>{{ conn.email }}</strong> through Gmail's SMTP server.</p>
+      <p class="small muted" style="margin:.4rem 0 1rem">Verified {{ conn.verified_at|date:"d M Y, H:i" }}. The app password is stored encrypted and is never shown again.</p>
+      <form method="post" action="{% url 'mail_disconnect' %}" data-confirm="Disconnect Gmail? Running campaigns will pause until you reconnect.">{% csrf_token %}
+        <button class="btn danger">Disconnect</button>
+      </form>
+      <details style="margin-top:1rem"><summary class="small" style="cursor:pointer">Replace the app password</summary>
+    {% endif %}
+      <form method="post" action="{% url 'mail_connect' %}" class="stack" style="margin-top:1rem">{% csrf_token %}
+        {% if gmail_form.non_field_errors %}<div class="alert bad" role="alert">{{ gmail_form.non_field_errors|join:" " }}</div>{% endif %}
+        {% for f in gmail_form %}
+          <div class="field">
+            <label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+            {% if f.help_text %}<div class="help">{{ f.help_text }}</div>{% endif %}
+            {% if f.errors %}<div class="err">{{ f.errors|join:" " }}</div>{% endif %}
+          </div>
+        {% endfor %}
+        <button class="btn primary">Verify and connect</button>
+        <div class="alert info small">
+          <div><strong>How to get an app password</strong>
+          1. Turn on 2-Step Verification for your Google account. 2. Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a>. 3. Create one named “KaamSetu” and paste the 16 letters here. We log in once to check it; nothing is sent.</div>
+        </div>
+      </form>
+    {% if conn %}</details>{% endif %}
+  </section>
+
+  <div class="stack">
+    <section class="card">
+      <div class="card-head"><h2>Profile & limits</h2></div>
+      <form method="post" class="stack">{% csrf_token %}
+        {% for f in profile_form %}
+          <div class="field">
+            <label for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+            {% if f.help_text %}<div class="help">{{ f.help_text }}</div>{% endif %}
+            {% if f.errors %}<div class="err">{{ f.errors|join:" " }}</div>{% endif %}
+          </div>
+        {% endfor %}
+        <p class="small muted">Personal Gmail accounts can send roughly 500 emails a day, but new or cold-outreach senders get flagged far sooner. Staying around 40/day protects your inbox reputation.</p>
+        <div><button class="btn primary">Save</button></div>
+      </form>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Sign-in &amp; security</h2></div>
+      <div class="stack" style="gap:.9rem">
+        <div class="row between"><div><strong>Email</strong><div class="small muted">{{ request.user.email }}</div></div>
+          {% if email_verified %}<span class="badge ok dot">verified</span>{% else %}<span class="badge warn dot">not verified</span>{% endif %}</div>
+        <div class="row between"><div><strong>Two-factor login</strong><div class="small muted">A 6-digit code from an authenticator app, asked after your password.</div></div>
+          <a class="btn sm {% if not mfa_on %}accent{% endif %}" href="{% url 'mfa_index' %}">{% if mfa_on %}Manage{% else %}Turn on{% endif %}</a></div>
+        <div class="row between"><div><strong>Password</strong><div class="small muted">Change it or set one if you signed up with Google.</div></div>
+          <a class="btn sm" href="{% url 'account_change_password' %}">Change</a></div>
+        {% if google_on %}<div class="row between"><div><strong>Google sign-in</strong><div class="small muted">{% if google_linked %}Linked to your Google account.{% else %}Not linked.{% endif %}</div></div>
+          <a class="btn sm" href="{% url 'socialaccount_connections' %}">{% if google_linked %}Manage{% else %}Link{% endif %}</a></div>{% endif %}
+        <div class="row between"><div><strong>Email addresses</strong><div class="small muted">Add or change the addresses on this account.</div></div>
+          <a class="btn sm" href="{% url 'account_email' %}">Manage</a></div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>AI suggestions</h2>{% if request.user.profile.ai_enabled %}<span class="badge ok dot">on</span>{% else %}<span class="badge dot">off</span>{% endif %}</div>
+      <p class="small">When on, the resume studio can send a resume and a job description to the configured model, but only when you press “Tailor with AI”. Suggestions never invent numbers or skills, and nothing is applied until you accept it.</p>
+      <p class="small muted" style="margin:.5rem 0 1rem">Server model: <code>{{ ai_label }}</code></p>
+      <form method="post" action="{% url 'ai_toggle' %}">{% csrf_token %}
+        {% if request.user.profile.ai_enabled %}
+          <input type="hidden" name="enabled" value="0"><button class="btn">Turn AI off</button>
+        {% else %}
+          <input type="hidden" name="enabled" value="1"><button class="btn accent">{% icon 'sparkles' 16 %} Turn AI on</button>
+        {% endif %}
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

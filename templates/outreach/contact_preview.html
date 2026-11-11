@@ -1,0 +1,51 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Review contacts{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a class="small" href="{% url 'contact_import' %}">← Start over</a><h1 style="margin-top:.4rem">Review before saving</h1><p>From {{ source }}. Untick anything you don't want, and fill in names or companies if you like.</p></div>
+</div>
+<div class="row" style="margin-bottom:1rem">
+  <span class="badge ok">{{ summary.valid }} ready</span>
+  <span class="badge warn">{{ summary.duplicate }} duplicate</span>
+  <span class="badge bad">{{ summary.invalid }} invalid</span>
+</div>
+{% for w in warnings %}<div class="alert warn small" style="margin-bottom:.6rem">{{ w }}</div>{% endfor %}
+
+<form method="post" action="{% url 'contact_import_confirm' %}">{% csrf_token %}
+  <input type="hidden" name="total" value="{{ drafts|length }}">
+  <div class="table-wrap" style="max-height:60vh">
+    <table>
+      <thead><tr>
+        <th style="width:36px"><input type="checkbox" data-select-all="pick" aria-label="Select all valid" checked></th>
+        <th>Email</th><th>Status</th><th>Name</th><th>Company</th><th>Role</th>
+      </tr></thead>
+      <tbody>
+      {% for d in drafts %}
+        <tr>
+          <td>
+            <input type="checkbox" name="pick" value="1" {% if d.status == 'valid' %}checked{% else %}disabled{% endif %}
+                   aria-label="Import {{ d.email }}" onchange="this.nextElementSibling.value = this.checked ? '1' : ''">
+            <input type="hidden" name="r{{ forloop.counter0 }}-include" value="{% if d.status == 'valid' %}1{% endif %}">
+            <input type="hidden" name="r{{ forloop.counter0 }}-email" value="{{ d.email }}">
+          </td>
+          <td class="mono small">{{ d.email }}</td>
+          <td>
+            {% if d.status == 'valid' %}<span class="badge ok">ready</span>
+            {% elif d.status == 'duplicate' %}<span class="badge warn" title="{{ d.reason }}">duplicate</span><div class="tiny muted">{{ d.reason }}</div>
+            {% else %}<span class="badge bad">invalid</span><div class="tiny muted">{{ d.reason }}</div>{% endif %}
+          </td>
+          <td><input type="text" name="r{{ forloop.counter0 }}-name" value="{{ d.name }}" maxlength="120" aria-label="Name" {% if d.status != 'valid' %}disabled{% endif %}></td>
+          <td><input type="text" name="r{{ forloop.counter0 }}-company" value="{{ d.company }}" maxlength="120" aria-label="Company" {% if d.status != 'valid' %}disabled{% endif %}></td>
+          <td><input type="text" name="r{{ forloop.counter0 }}-role" value="{{ d.role_title }}" maxlength="120" aria-label="Role" {% if d.status != 'valid' %}disabled{% endif %}></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="row end" style="margin-top:1rem">
+    <a class="btn ghost" href="{% url 'contact_list' %}">Cancel</a>
+    <button class="btn primary" {% if not summary.valid %}disabled{% endif %}>{% icon 'check' 16 %} Save selected contacts</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,368 @@
+{% extends "app.html" %}
+{% load kaam static %}
+{% block title %}{{ resume.title }}{% endblock %}
+{% block head %}
+<script src="{% vstatic 'js/resume.js' %}"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+{% endblock %}
+{% block content %}
+<h1 class="sr-only">Resume editor: {{ resume.title }}</h1>
+{{ data|json_script:"resume-data" }}
+<div x-data="resumeEditor({
+      saveUrl: '{% url 'version_save' v.pk %}',
+      tailorUrl: '{% url 'version_tailor' v.pk %}',
+      applyUrl: '{% url 'version_apply' v.pk %}',
+      checkUrl: '{% url 'version_tailor_check' v.pk %}',
+      locked: {% if v.locked %}true{% else %}false{% endif %},
+      label: '{{ v.label|escapejs }}'
+    })" x-cloak>
+
+  <div class="row between" style="margin-bottom:1rem">
+    <div class="row">
+      <a class="btn ghost sm" href="{% url 'resume_all' %}">{% icon 'back' 14 %} All resumes</a>
+      <strong style="font-family:var(--font-display);font-size:1.25rem">{{ resume.title }}</strong>
+    </div>
+    <div class="row">
+      <span class="small muted" x-show="dirty">Unsaved changes</span>
+      <a class="btn sm" href="{% url 'version_export' v.pk 'pdf' %}" @click="warnIfDirty($event)">{% icon 'download' 14 %} PDF</a>
+      <a class="btn sm" href="{% url 'version_export' v.pk 'docx' %}" @click="warnIfDirty($event)">{% icon 'download' 14 %} Word</a>
+      <button class="btn sm" type="button" @click="save(true)" x-show="!locked" :disabled="saving">Save as new version</button>
+      <button class="btn primary sm" type="button" @click="save(locked)" :disabled="saving" x-text="locked ? 'Save as new version' : 'Save'"></button>
+    </div>
+  </div>
+
+  <div class="card flat row between" style="margin-bottom:1rem;padding:.8rem 1rem">
+    <form method="get" class="row">
+      <label for="v" class="small" style="font-weight:600">Version</label>
+      <select id="v" name="v" onchange="this.form.submit()" style="width:auto">
+        {% for x in versions %}<option value="{{ x.pk }}" {% if x.pk == v.pk %}selected{% endif %}>{{ x.label }} · {{ x.get_source_display }} · {{ x.created_at|date:"d M, H:i" }}</option>{% endfor %}
+      </select>
+      {% if v.locked %}<span class="badge warn">{% icon 'lock' 12 %} locked original</span>{% endif %}
+      {% if v.source == 'ai' %}<span class="badge info">{% icon 'sparkles' 12 %} AI-tailored</span>{% endif %}
+    </form>
+    <div class="row">
+      <input type="text" x-model="label" @input="dirty = true" maxlength="160" aria-label="Version name" style="width:220px" :disabled="locked">
+      {% if resume.original_file %}<a class="btn sm ghost" href="{% url 'resume_original' resume.pk %}">{% icon 'download' 14 %} Original file</a>{% endif %}
+      {% if not v.locked and versions|length > 1 %}
+      <form method="post" action="{% url 'version_delete' v.pk %}" data-confirm="Delete this version?">{% csrf_token %}<button class="btn sm ghost danger">{% icon 'trash' 14 %}</button></form>
+      {% endif %}
+      <form method="post" action="{% url 'resume_delete' resume.pk %}" data-confirm="Delete this resume, all its versions and the original file?">{% csrf_token %}<button class="btn sm ghost danger">Delete resume</button></form>
+    </div>
+  </div>
+
+  {% if v.locked %}<div class="alert info small" style="margin-bottom:1rem"><div>This is your imported original. It stays untouched; saving creates a new version you can edit freely.</div></div>{% endif %}
+  {% if resume.import_notes and v.source == 'import' %}
+    <details class="alert warn small" style="margin-bottom:1rem;display:block"><summary style="cursor:pointer;font-weight:600">Import notes ({{ resume.import_notes|length }})</summary>
+      <ul style="margin:.5rem 0 0;padding-left:1.1rem">{% for n in resume.import_notes %}<li>{{ n }}</li>{% endfor %}</ul>
+    </details>
+  {% endif %}
+
+  <div class="ws-layout">
+    <div>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" :class="tab === 'edit' && 'on'" @click="tab = 'edit'">Edit content</button>
+        <button type="button" role="tab" :class="tab === 'ai' && 'on'" @click="tab = 'ai'">{% icon 'sparkles' 14 %} Tailor to a job</button>
+      </div>
+
+      {# ───── EDIT ───── #}
+      <div x-show="tab === 'edit'" class="stack" style="--gap:.7rem" @input="dirty = true" data-track>
+        <details class="section-card" open>
+          <summary><span>Basics</span></summary>
+          <div class="body">
+            <div class="form-grid">
+              <div class="field"><label>Full name</label><input type="text" x-model="d.basics.name" maxlength="120"></div>
+              <div class="field"><label>Headline</label><input type="text" x-model="d.basics.headline" maxlength="160" placeholder="Backend Engineer · Python, Go"></div>
+              <div class="field"><label>Email</label><input type="text" x-model="d.basics.email" maxlength="254"></div>
+              <div class="field"><label>Phone</label><input type="text" x-model="d.basics.phone" maxlength="40"></div>
+              <div class="field"><label>Location</label><input type="text" x-model="d.basics.location" maxlength="120"></div>
+            </div>
+            <div class="label">Links</div>
+            <template x-for="(l, i) in d.basics.links" :key="i">
+              <div class="bullet-row">
+                <input type="text" x-model="l.label" placeholder="LinkedIn" maxlength="60" style="max-width:140px" aria-label="Link label">
+                <input type="text" x-model="l.url" placeholder="linkedin.com/in/you" maxlength="300" aria-label="Link URL">
+                <button type="button" class="icon-btn" @click="d.basics.links.splice(i,1); dirty=true" aria-label="Remove link">✕</button>
+              </div>
+            </template>
+            <div><button type="button" class="btn sm" @click="d.basics.links.push({label:'',url:''}); dirty=true" x-show="d.basics.links.length < 10">+ Link</button></div>
+          </div>
+        </details>
+
+        <template x-for="(key, si) in d.section_order" :key="key">
+          <details class="section-card" open>
+            <summary>
+              <span x-text="labels[key]"></span>
+              <span class="row" style="gap:.25rem" @click.prevent>
+                <button type="button" class="icon-btn" @click="move(si,-1)" :disabled="si===0" aria-label="Move section up">↑</button>
+                <button type="button" class="icon-btn" @click="move(si,1)" :disabled="si===d.section_order.length-1" aria-label="Move section down">↓</button>
+              </span>
+            </summary>
+            <div class="body">
+              <template x-if="key === 'summary'">
+                <textarea x-model="d.summary" rows="4" maxlength="2000" placeholder="Two or three lines about what you do best." aria-label="Summary"></textarea>
+              </template>
+
+              <template x-if="key === 'skills'">
+                <div class="stack" style="--gap:.5rem">
+                  <template x-for="(g, i) in d.skills" :key="g.id">
+                    <div class="bullet-row">
+                      <input type="text" x-model="g.category" placeholder="Languages" maxlength="80" style="max-width:160px" aria-label="Skill category">
+                      <input type="text" :value="g.items.join(', ')" @change="g.items = splitList($event.target.value, 80, 60); dirty=true" placeholder="Python, Go, SQL" aria-label="Skills, comma separated">
+                      <button type="button" class="icon-btn" @click="d.skills.splice(i,1); dirty=true" aria-label="Remove group">✕</button>
+                    </div>
+                  </template>
+                  <div><button type="button" class="btn sm" @click="d.skills.push({id:uid(),category:'',items:[]}); dirty=true">+ Skill group</button></div>
+                </div>
+              </template>
+
+              <template x-if="key === 'experience'">
+                <div class="stack" style="--gap:.6rem">
+                  <template x-for="(e, i) in d.experience" :key="e.id">
+                    <div class="entry">
+                      <div class="form-grid">
+                        <div class="field"><label>Title</label><input type="text" x-model="e.title" maxlength="120"></div>
+                        <div class="field"><label>Company</label><input type="text" x-model="e.company" maxlength="120"></div>
+                        <div class="field"><label>Location</label><input type="text" x-model="e.location" maxlength="120"></div>
+                        <div class="field"><label>Start</label><input type="text" x-model="e.start" maxlength="30" placeholder="Jan 2022"></div>
+                        <div class="field"><label>End</label><input type="text" x-model="e.end" maxlength="30" :disabled="e.current" placeholder="Mar 2024"></div>
+                      </div>
+                      <label class="row small"><input type="checkbox" x-model="e.current"> I work here now</label>
+                      <div class="label">Bullet points</div>
+                      <template x-for="(b, j) in e.bullets" :key="j">
+                        <div class="bullet-row">
+                          <textarea rows="2" maxlength="600" :value="b" @input="e.bullets[j] = $event.target.value" aria-label="Bullet"></textarea>
+                          <button type="button" class="icon-btn" @click="e.bullets.splice(j,1); dirty=true" aria-label="Remove bullet">✕</button>
+                        </div>
+                      </template>
+                      <div class="row between">
+                        <button type="button" class="btn sm" @click="e.bullets.push(''); dirty=true" x-show="e.bullets.length < 20">+ Bullet</button>
+                        <button type="button" class="btn sm ghost danger" @click="d.experience.splice(i,1); dirty=true">Remove role</button>
+                      </div>
+                    </div>
+                  </template>
+                  <div><button type="button" class="btn sm" @click="d.experience.push({id:uid(),company:'',title:'',location:'',start:'',end:'',current:false,bullets:['']}); dirty=true">+ Role</button></div>
+                </div>
+              </template>
+
+              <template x-if="key === 'projects'">
+                <div class="stack" style="--gap:.6rem">
+                  <template x-for="(p, i) in d.projects" :key="p.id">
+                    <div class="entry">
+                      <div class="form-grid">
+                        <div class="field"><label>Project</label><input type="text" x-model="p.name" maxlength="120"></div>
+                        <div class="field"><label>Link</label><input type="text" x-model="p.url" maxlength="300"></div>
+                      </div>
+                      <div class="field"><label>Tech</label><input type="text" :value="p.tech.join(', ')" @change="p.tech = splitList($event.target.value, 60, 30); dirty=true" placeholder="React, FastAPI"></div>
+                      <template x-for="(b, j) in p.bullets" :key="j">
+                        <div class="bullet-row">
+                          <textarea rows="2" maxlength="600" :value="b" @input="p.bullets[j] = $event.target.value" aria-label="Bullet"></textarea>
+                          <button type="button" class="icon-btn" @click="p.bullets.splice(j,1); dirty=true" aria-label="Remove bullet">✕</button>
+                        </div>
+                      </template>
+                      <div class="row between">
+                        <button type="button" class="btn sm" @click="p.bullets.push(''); dirty=true" x-show="p.bullets.length < 15">+ Bullet</button>
+                        <button type="button" class="btn sm ghost danger" @click="d.projects.splice(i,1); dirty=true">Remove project</button>
+                      </div>
+                    </div>
+                  </template>
+                  <div><button type="button" class="btn sm" @click="d.projects.push({id:uid(),name:'',url:'',tech:[],bullets:['']}); dirty=true">+ Project</button></div>
+                </div>
+              </template>
+
+              <template x-if="key === 'education'">
+                <div class="stack" style="--gap:.6rem">
+                  <template x-for="(e, i) in d.education" :key="e.id">
+                    <div class="entry">
+                      <div class="form-grid">
+                        <div class="field"><label>School</label><input type="text" x-model="e.school" maxlength="160"></div>
+                        <div class="field"><label>Degree</label><input type="text" x-model="e.degree" maxlength="160"></div>
+                        <div class="field"><label>Start</label><input type="text" x-model="e.start" maxlength="30"></div>
+                        <div class="field"><label>End</label><input type="text" x-model="e.end" maxlength="30"></div>
+                      </div>
+                      <div class="field"><label>Details</label><input type="text" x-model="e.details" maxlength="500" placeholder="CGPA, coursework, honours"></div>
+                      <div class="row end"><button type="button" class="btn sm ghost danger" @click="d.education.splice(i,1); dirty=true">Remove</button></div>
+                    </div>
+                  </template>
+                  <div><button type="button" class="btn sm" @click="d.education.push({id:uid(),school:'',degree:'',start:'',end:'',details:''}); dirty=true">+ Education</button></div>
+                </div>
+              </template>
+
+              <template x-if="key === 'certifications'">
+                <div class="stack" style="--gap:.5rem">
+                  <template x-for="(c, i) in d.certifications" :key="c.id">
+                    <div class="bullet-row">
+                      <input type="text" x-model="c.name" placeholder="Certificate" maxlength="160" aria-label="Certificate name">
+                      <input type="text" x-model="c.issuer" placeholder="Issuer" maxlength="120" style="max-width:150px" aria-label="Issuer">
+                      <input type="text" x-model="c.year" placeholder="Year" maxlength="10" style="max-width:80px" aria-label="Year">
+                      <button type="button" class="icon-btn" @click="d.certifications.splice(i,1); dirty=true" aria-label="Remove certificate">✕</button>
+                    </div>
+                  </template>
+                  <div><button type="button" class="btn sm" @click="d.certifications.push({id:uid(),name:'',issuer:'',year:'',url:''}); dirty=true">+ Certification</button></div>
+                </div>
+              </template>
+            </div>
+          </details>
+        </template>
+
+        <details class="section-card" :open="d.additional.length > 0">
+          <summary><span>Additional content</span></summary>
+          <div class="body">
+            <p class="small muted">Text from your import that didn't fit a section. It's shown at the end of the resume; move it into sections or delete it.</p>
+            <textarea x-model="d.additional" rows="5" maxlength="8000" aria-label="Additional content"></textarea>
+          </div>
+        </details>
+      </div>
+
+      {# ───── AI: ATS TAILORING ───── #}
+      <div x-show="tab === 'ai'" class="stack">
+        {% if not ai_enabled %}
+          <div class="card">
+            {% include "_ai_invite.html" with title="Let's match your resume to a job" text="Paste a job description and I'll show your ATS score, then suggest changes you can accept or decline one by one." %}
+          </div>
+        {% else %}
+          <div class="card stack">
+            <div class="row between"><h2>Tailor to a job</h2><span class="tiny muted">Model: {{ ai_label }}</span></div>
+            <div class="form-grid">
+              <div class="field"><label for="ai-job">Job title</label><input id="ai-job" type="text" x-model="ai.job_title" maxlength="160"></div>
+              <div class="field"><label for="ai-co">Company</label><input id="ai-co" type="text" x-model="ai.company" maxlength="160"></div>
+            </div>
+            <div class="field"><label for="ai-jd">Job description</label><textarea id="ai-jd" x-model="ai.jd" rows="8" maxlength="12000" placeholder="Paste the full job description, including requirements"></textarea></div>
+            <div class="field"><label for="ai-ins">Extra instructions <span class="muted">(optional)</span></label><input id="ai-ins" type="text" x-model="ai.instructions" maxlength="1000" placeholder="e.g. emphasise backend work"></div>
+            <div class="row">
+              <button type="button" class="btn accent" @click="tailor()" :disabled="ai.busy || ai.jd.trim().length < 40">{% icon 'sparkles' 14 %} <span x-text="ai.busy ? 'Analysing… ' + ai.elapsed + 's' : 'Analyse & tailor'"></span></button>
+              <span class="tiny muted" x-show="ai.busy">Local models can take 2–4 minutes.</span>
+              <span class="tiny muted" x-show="dirty && !ai.busy">Uses the last saved version of this resume.</span>
+            </div>
+            <div class="alert bad small" x-show="ai.error" x-text="ai.error"></div>
+          </div>
+
+          <template x-if="ai.result">
+            <div class="stack">
+              <section class="card ats-card">
+                <div class="ats-scores">
+                  <div><div class="tiny muted">ATS match now</div><div class="ats-num" x-text="ai.result.score_before + '%'"></div></div>
+                  <div class="ats-arrow">{% icon 'arrow' 18 %}</div>
+                  <div><div class="tiny muted">With your accepted changes</div><div class="ats-num good" x-text="ai.live.score + '%'"></div></div>
+                  <span class="badge dot" :class="ai.live.pages <= 1 ? 'ok' : 'bad'" x-text="ai.live.pages <= 1 ? 'Fits on 1 page' : ai.live.pages + ' pages: decline some additions'"></span>
+                </div>
+                <div class="progress" style="margin:.8rem 0 .3rem" aria-hidden="true"><span class="p-ok" :style="'width:' + ai.live.score + '%'"></span></div>
+                <div class="tiny muted">Share of the job's keywords found in your resume (required keywords count double). Aim for 80–90%.</div>
+                <div class="kw-list">
+                  <template x-for="k in ai.result.keywords" :key="k.term">
+                    <span class="kw" :class="kwState(k)" :title="k.importance" x-text="k.term"></span>
+                  </template>
+                </div>
+                <div class="tiny muted row" style="gap:.8rem"><span><span class="kw-dot matched"></span> in your resume</span><span><span class="kw-dot added"></span> added by accepted changes</span><span><span class="kw-dot missing"></span> still missing</span></div>
+              </section>
+
+              <div class="row between">
+                <h3 x-text="'Suggested changes (' + decidedCount() + ' of ' + ai.result.suggestions.length + ' decided)'"></h3>
+                <div class="row" style="gap:.4rem">
+                  <button type="button" class="btn sm" @click="decideAll('accept')">Accept all</button>
+                  <button type="button" class="btn sm ghost" @click="decideAll('decline')">Decline all</button>
+                </div>
+              </div>
+              <p class="tiny muted" style="margin-top:-.6rem" x-show="!ai.result.suggestions.length">No changes needed: every keyword the AI could add honestly is already in your resume.</p>
+
+              <template x-if="byType('skill').length">
+                <section class="card stack" style="--gap:.6rem">
+                  <h3>Skills to add <span class="tiny muted" style="font-family:var(--font-sans)">accept only the ones you really have</span></h3>
+                  <div class="skill-chips">
+                    <template x-for="s in byType('skill')" :key="s.id">
+                      <div class="skill-chip" :class="s.decision">
+                        <span x-text="s.proposed"></span><span class="tiny muted" x-text="'→ ' + s.group"></span>
+                        <button type="button" class="mini ok" @click="decide(s, 'accept')" :aria-pressed="s.decision === 'accept'" :aria-label="'Accept ' + s.proposed">✓</button>
+                        <button type="button" class="mini no" @click="decide(s, 'decline')" :aria-pressed="s.decision === 'decline'" :aria-label="'Decline ' + s.proposed">✕</button>
+                      </div>
+                    </template>
+                  </div>
+                </section>
+              </template>
+
+              <template x-for="s in ai.result.suggestions.filter(x => x.type !== 'skill')" :key="s.id">
+                <div class="suggestion" :class="[s.state === 'blocked' && 'blocked', s.decision]">
+                  <div class="row between">
+                    <strong class="small" x-text="kindLabel(s)"></strong>
+                    <div class="decide">
+                      <button type="button" :class="s.decision === 'accept' && 'on-ok'" @click="decide(s, 'accept')" :disabled="s.state === 'blocked'">✓ Accept</button>
+                      <button type="button" :class="s.decision === 'decline' && 'on-no'" @click="decide(s, 'decline')">✕ Decline</button>
+                    </div>
+                  </div>
+                  <div class="diff-old" x-show="s.original" x-text="s.original"></div>
+                  <textarea rows="3" x-model="s.proposed" @input.debounce.600ms="recheck()" :disabled="s.state === 'blocked' || s.decision === 'decline'" aria-label="Proposed text"></textarea>
+                  <div class="row" style="gap:.3rem"><span class="tiny muted">Adds:</span><template x-for="a in s.adds"><span class="kw added" x-text="a"></span></template></div>
+                  <div class="tiny muted" x-show="s.rationale" x-text="'Why: ' + s.rationale"></div>
+                  <template x-for="n in s.notes"><div class="tiny" :style="s.state === 'blocked' ? 'color:var(--bad)' : 'color:#9a5b00'" x-text="n"></div></template>
+                </div>
+              </template>
+
+              <section class="card stack final-card" x-show="ai.result.suggestions.length">
+                <div class="row between">
+                  <div>
+                    <strong>Final resume</strong>
+                    <div class="tiny muted" x-text="pendingCount() ? pendingCount() + ' change(s) still need Accept or Decline.' : (acceptedCount() + ' accepted · ATS ' + ai.live.score + '% · ' + (ai.live.pages <= 1 ? 'one page' : ai.live.pages + ' pages'))"></div>
+                  </div>
+                  <button type="button" class="btn primary" @click="apply()" :disabled="ai.applying || pendingCount() > 0 || !acceptedCount() || ai.live.pages > 1">{% icon 'check' 14 %} <span x-text="ai.applying ? 'Creating…' : 'Create final resume'"></span></button>
+                </div>
+                <p class="tiny muted">Saved as a new version. This version stays exactly as it is.</p>
+              </section>
+            </div>
+          </template>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ───── LIVE PREVIEW ───── #}
+    <div style="position:sticky;top:1rem" x-data="{ view: '{% if show_original_first %}original{% else %}edited{% endif %}' }">
+      {% if original_pages or original_html %}
+      <div class="seg" role="tablist" aria-label="Preview">
+        <button type="button" role="tab" :class="view === 'original' && 'on'" :aria-selected="view === 'original'" @click="view = 'original'">{% icon 'file' 14 %} Original file</button>
+        <button type="button" role="tab" :class="view === 'edited' && 'on'" :aria-selected="view === 'edited'" @click="view = 'edited'">{% icon 'eye' 14 %} Edited version</button>
+      </div>
+      <div x-show="view === 'original'">
+        <p class="tiny muted" style="margin:.2rem 0 .6rem">
+          {% if original_pages %}Exactly as your {{ resume.original_kind|upper }} looks{% if resume.original_kind != 'pdf' %} (converted with Microsoft Word){% endif %}. {% else %}Your Word file with its bold, italics, headings and lists. Exact page layout needs Word or LibreOffice on the server. {% endif %}
+          To email it with this exact look, choose <strong>Upload a file</strong> when creating a campaign, or <a href="{% url 'resume_original' resume.pk %}">download the original</a>.
+        </p>
+        <div class="original-pages">
+          {% for n in original_pages %}<img src="{% url 'resume_original_page' resume.pk n %}" alt="Page {{ forloop.counter }} of your original resume" loading="lazy" width="1224" height="1584">{% endfor %}
+          {% if original_html %}<div class="resume-sheet original-html">{{ original_html|safe }}</div>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+      <div x-show="view === 'edited'">
+      <div class="row between" style="margin-bottom:.5rem"><span class="label">{% icon 'eye' 14 %} Live preview of your edits</span><span class="tiny muted">PDF/Word export uses this clean layout</span></div>
+      <div class="resume-sheet" aria-label="Resume preview">
+        <h1 x-text="d.basics.name || 'Your Name'"></h1>
+        <div class="headline" x-show="d.basics.headline" x-text="d.basics.headline"></div>
+        <div class="contact" x-text="[d.basics.email, d.basics.phone, d.basics.location, ...d.basics.links.map(l => l.url)].filter(Boolean).join('  |  ')"></div>
+        <template x-for="key in d.section_order" :key="key">
+          <div x-show="hasContent(key)">
+            <h4 x-text="labels[key]"></h4>
+            <template x-if="key === 'summary'"><p x-text="d.summary"></p></template>
+            <template x-if="key === 'skills'"><div><template x-for="g in d.skills.filter(g => g.items.length)"><div><strong x-show="g.category" x-text="g.category + ': '"></strong><span x-text="g.items.join(', ')"></span></div></template></div></template>
+            <template x-if="key === 'experience'"><div><template x-for="e in d.experience"><div class="entry-block">
+              <div class="r-row"><span x-text="[e.title, e.company].filter(Boolean).join(' — ')"></span><span x-text="[e.start, e.current ? 'Present' : e.end].filter(Boolean).join(' – ')"></span></div>
+              <div class="sub" x-show="e.location" x-text="e.location"></div>
+              <ul><template x-for="b in e.bullets.filter(b => b.trim())"><li x-text="b"></li></template></ul>
+            </div></template></div></template>
+            <template x-if="key === 'projects'"><div><template x-for="p in d.projects"><div class="entry-block">
+              <div class="r-row"><span x-text="p.name"></span><span x-text="p.url"></span></div>
+              <div class="sub" x-show="p.tech.length" x-text="p.tech.join(', ')"></div>
+              <ul><template x-for="b in p.bullets.filter(b => b.trim())"><li x-text="b"></li></template></ul>
+            </div></template></div></template>
+            <template x-if="key === 'education'"><div><template x-for="e in d.education"><div class="entry-block">
+              <div class="r-row"><span x-text="e.school"></span><span x-text="[e.start, e.end].filter(Boolean).join(' – ')"></span></div>
+              <div class="sub" x-text="e.degree"></div><div x-show="e.details" x-text="e.details"></div>
+            </div></template></div></template>
+            <template x-if="key === 'certifications'"><div><template x-for="c in d.certifications"><div class="r-row" style="font-weight:400"><span x-text="[c.name, c.issuer].filter(Boolean).join(' — ')"></span><span x-text="c.year"></span></div></template></div></template>
+          </div>
+        </template>
+        <div x-show="d.additional.trim()"><h4>Additional</h4><p style="white-space:pre-line" x-text="d.additional"></p></div>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ labels|json_script:"section-labels" }}
+{% endblock %}

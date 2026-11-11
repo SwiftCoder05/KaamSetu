@@ -1,0 +1,13 @@
+{% load kaam %}
+<nav class="nav">
+  <a href="{% url 'dashboard' %}" class="{% if p == '/dashboard/' %}active{% endif %}">{% icon 'home' %} Dashboard</a>
+  <div class="nav-label">Tech job hunt</div>
+  <a href="{% url 'contact_list' %}" class="{% if '/jobs/contacts' in p %}active{% endif %}">{% icon 'users' %} Contacts</a>
+  <a href="{% url 'template_gallery' %}" class="{% if '/jobs/templates' in p %}active{% endif %}">{% icon 'mail' %} Templates</a>
+  <a href="{% url 'campaign_list' %}" class="{% if '/jobs/campaigns' in p %}active{% endif %}">{% icon 'send' %} Campaigns</a>
+  <a href="{% url 'resume_list' %}" class="{% if '/resumes' in p %}active{% endif %}">{% icon 'file' %} Resume studio</a>
+  <div class="nav-label">Creators</div>
+  <a href="{% url 'ugc' %}" class="{% if p == '/ugc/' %}active{% endif %}">{% icon 'video' %} UGC outreach <span class="soon">Soon</span></a>
+  <div class="nav-label">Account</div>
+  <a href="{% url 'settings' %}" class="{% if p == '/settings/' or '/settings/' in p %}active{% endif %}">{% icon 'settings' %} Settings</a>
+</nav>

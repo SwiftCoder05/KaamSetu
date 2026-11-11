@@ -1,0 +1,118 @@
+{% extends "app.html" %}
+{% load kaam static %}
+{% block title %}{{ t.name }}{% endblock %}
+{% block content %}
+<h1 class="sr-only">Edit template: {{ t.name }}</h1>
+<form method="post" id="tpl-form" data-preview-url="{% url 'template_preview' t.pk %}">{% csrf_token %}
+  <div class="row between" style="margin-bottom:1rem">
+    <a class="btn ghost sm" href="{% url 'template_gallery' %}">{% icon 'back' 14 %} All templates</a>
+    <div class="row">
+      <span class="small muted" id="dirty" hidden>Unsaved changes</span>
+      <button type="button" class="eye-btn" data-preview-open aria-haspopup="dialog" aria-controls="pv-modal" title="Preview as a recipient sees it" aria-label="Preview the email">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g class="eye-lid"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/></g></svg>
+      </button>
+      <button type="submit" form="dup-form" class="btn sm ghost" title="Duplicate">{% icon 'copy' 14 %}</button>
+      <button type="submit" form="del-form" class="btn sm ghost danger" title="Delete">{% icon 'trash' 14 %}</button>
+      <a class="btn sm" href="{% url 'campaign_new' %}?template={{ t.pk }}">{% icon 'send' 14 %} Use in campaign</a>
+      <button class="btn primary sm" id="save">{% icon 'check' 14 %} Save</button>
+    </div>
+  </div>
+
+  <div class="editor-layout single">
+    <div class="doc-shell">
+      <div class="doc">
+        <div class="doc-head">
+          <div class="meta"><label for="name">Template</label><input id="name" name="name" value="{{ t.name }}" maxlength="120" required></div>
+          {% if errors.name %}<div class="err small">{{ errors.name }}</div>{% endif %}
+          <div class="meta"><label for="role_label">Role</label><input id="role_label" name="role_label" value="{{ t.role_label }}" maxlength="120" placeholder="e.g. Backend Engineer (fills &#123;&#123;role&#125;&#125;; empty = each contact's role)"></div>
+          <div class="meta"><label for="subject">Subject</label><input id="subject" name="subject" value="{{ t.subject }}" maxlength="300" required style="font-weight:600"></div>
+          {% if errors.subject %}<div class="err small">{{ errors.subject }}</div>{% endif %}
+        </div>
+        <div class="toolbar" role="toolbar" aria-label="Formatting">
+          <button type="button" data-cmd="bold" title="Bold (Ctrl+B)" aria-label="Bold"><b>B</b></button>
+          <button type="button" data-cmd="italic" title="Italic (Ctrl+I)" aria-label="Italic"><i style="font-family:Georgia">I</i></button>
+          <button type="button" data-cmd="underline" title="Underline (Ctrl+U)" aria-label="Underline"><u>U</u></button>
+          <button type="button" data-cmd="strikeThrough" title="Strikethrough" aria-label="Strikethrough"><s>S</s></button>
+          <span class="sep"></span>
+          <button type="button" data-case="upper" title="UPPERCASE selection" aria-label="Uppercase">AA</button>
+          <button type="button" data-case="lower" title="lowercase selection" aria-label="Lowercase">aa</button>
+          <button type="button" data-case="title" title="Title Case selection" aria-label="Title case">Aa</button>
+          <span class="sep"></span>
+          <button type="button" data-cmd="insertUnorderedList" title="Bulleted list" aria-label="Bulleted list">{% icon 'list' 16 %}</button>
+          <button type="button" data-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">{% icon 'olist' 16 %}</button>
+          <button type="button" data-action="link" title="Link" aria-label="Insert link">{% icon 'link' 16 %}</button>
+          <button type="button" data-cmd="removeFormat" title="Clear formatting" aria-label="Clear formatting">{% icon 'eraser' 16 %}</button>
+          <span class="sep"></span>
+          <button type="button" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo">{% icon 'undo' 16 %}</button>
+          <button type="button" data-cmd="redo" title="Redo (Ctrl+Y)" aria-label="Redo">{% icon 'redo' 16 %}</button>
+        </div>
+        <div id="body-editor" class="email-doc" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Email body" data-placeholder="Write your email…">{{ t.body|safe_email_html }}</div>
+        <textarea name="body" id="body" hidden>{{ t.body }}</textarea>
+        {% if errors.body %}<div class="err small" style="padding:0 1.5rem 1rem">{{ errors.body }}</div>{% endif %}
+      </div>
+    </div>
+
+  </div>
+</form>
+<form method="post" action="{% url 'template_duplicate' t.pk %}" id="dup-form">{% csrf_token %}</form>
+<form method="post" action="{% url 'ai_toggle' %}" id="ai-on-form">{% csrf_token %}<input type="hidden" name="enabled" value="1"><input type="hidden" name="next" value="{{ request.get_full_path }}"></form>
+<form method="post" action="{% url 'template_delete' t.pk %}" id="del-form" data-confirm="Delete this template? Campaigns already created keep their copy.">{% csrf_token %}</form>
+
+
+<div class="pv-modal" id="pv-modal" role="dialog" aria-modal="true" aria-labelledby="pv-title" hidden>
+  <div class="pv-backdrop" data-preview-close></div>
+  <div class="pv-card">
+    <div class="pv-head">
+      <div><strong id="pv-title">{% icon 'eye' 16 %} Preview</strong><div class="tiny muted">As Priya Sharma at Acme Labs would receive it · From: {{ sender_name }}</div></div>
+      <button type="button" class="icon-btn" data-preview-close aria-label="Close preview">{% icon 'x' 14 %}</button>
+    </div>
+    <div class="pv-mail">
+      <div id="pv-subject" class="pv-subject"></div>
+      <div id="pv-body" class="email-preview"></div>
+    </div>
+    <div id="pv-warn" class="alert warn small" hidden></div>
+  </div>
+</div>
+
+{# Floating AI helper: a robot offers help; the small panel opens only when clicked #}
+<div class="ai-dock" data-ai-dock>
+  <div class="ai-pop" id="ai-pop" role="dialog" aria-label="AI email writer" hidden>
+    <div class="ai-pop-head">
+      <strong>{% icon 'sparkles' 14 %} AI email writer</strong>
+      <button type="button" class="icon-btn" data-ai-close aria-label="Close">{% icon 'x' 14 %}</button>
+    </div>
+    {% if not ai_enabled %}
+      {% include "_ai_invite.html" with title="Let me write it with you" text="Paste a job post and I'll draft your email, polish it or make it shorter." form_id="ai-on-form" no_robot=True %}
+    {% else %}
+    <div class="stack" style="--gap:.55rem" id="ai-writer" data-url="{% url 'template_ai' t.pk %}">
+      <div class="field"><label for="ai-jd">Job description <span class="muted">(optional)</span></label>
+        <textarea id="ai-jd" rows="3" maxlength="12000" placeholder="Paste the job post so the email speaks to it"></textarea></div>
+      <div class="field"><label for="ai-instr">Instructions <span class="muted">(optional)</span></label>
+        <input type="text" id="ai-instr" maxlength="1000" placeholder="e.g. friendly tone, can join in 30 days"></div>
+      <div class="row" style="gap:.35rem">
+        <button type="button" class="btn primary sm" data-ai-mode="draft">Draft new email</button>
+        <button type="button" class="btn sm" data-ai-mode="improve">Improve</button>
+        <button type="button" class="btn sm" data-ai-mode="shorten">Shorten</button>
+      </div>
+      <div id="ai-status" class="small muted" hidden></div>
+      <div id="ai-result" class="stack" style="--gap:.45rem" hidden>
+        <div id="ai-issues" class="alert small" hidden></div>
+        <div id="ai-subject" style="font-weight:600"></div>
+        <div id="ai-body" class="email-preview ai-draft"></div>
+        <div class="row" style="gap:.35rem">
+          <button type="button" class="btn primary sm" id="ai-use">{% icon 'check' 14 %} Use this draft</button>
+          <button type="button" class="btn ghost sm" id="ai-discard">Discard</button>
+          <button type="button" class="btn ghost sm" id="ai-restore" hidden>Undo</button>
+        </div>
+      </div>
+      <p class="tiny muted">Nothing changes until you press “Use this draft”. Uses your latest resume for facts.</p>
+    </div>
+    {% endif %}
+  </div>
+  <button type="button" class="ai-fab" data-ai-open aria-controls="ai-pop" aria-expanded="false" aria-label="Open the AI email writer">
+    <span class="ai-note">Want my help with this email?</span>
+    {% include "_robot.html" with cls="small" %}
+  </button>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/editor.js' %}"></script>{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load kaam %}
+{% block title %}Job outreach, done honestly{% endblock %}
+{% block body_class %}glow{% endblock %}
+{% block body %}
+<header class="landing-nav">
+  <a class="brand" href="/"><span class="brand-mark">K</span><span class="brand-name">KaamSetu</span></a>
+  <div class="row">
+    <a class="btn ghost" href="{% url 'account_login' %}">Sign in</a>
+    <a class="btn primary" href="{% url 'account_signup' %}">Create account</a>
+  </div>
+</header>
+<main>
+  <section class="hero">
+    <div>
+      <div class="badge warn" style="margin-bottom:1rem">For job seekers · creators soon</div>
+      <h1>Reach recruiters <em>personally</em>, at scale, without losing your voice.</h1>
+      <p class="lede">Import recruiter emails from anywhere, write warm templates, attach the right resume, and send from your own Gmail with clear limits and an honest status for every message.</p>
+      <div class="row">
+        <a class="btn primary lg" href="{% url 'account_signup' %}">Start free {% icon 'arrow' 16 %}</a>
+        <a class="btn lg" href="{% url 'account_login' %}">I have an account</a>
+      </div>
+    </div>
+    <div class="mock grain" aria-hidden="true">
+      <div class="row between"><strong>Campaign · Backend roles</strong><span class="badge ok dot">sending</span></div>
+      <div class="progress"><span class="p-ok" style="width:62%"></span><span class="p-bad" style="width:4%"></span></div>
+      <div class="card flat" style="padding:1rem">
+        <div class="small muted">To: priya@acmelabs.com</div>
+        <div style="font-weight:600;margin:.3rem 0 .6rem">Software Engineer application — Asha Rao</div>
+        <div class="stack" style="--gap:.45rem">
+          <div class="line" style="width:92%"></div><div class="line" style="width:80%"></div><div class="line" style="width:86%"></div><div class="line" style="width:40%"></div>
+        </div>
+        <div class="row" style="margin-top:.8rem"><span class="badge info">{% icon 'file' 12 %} Asha_Rao.pdf</span></div>
+      </div>
+      <div class="row small muted">{% icon 'shield' 14 %} 24 of 40 daily emails used</div>
+    </div>
+  </section>
+  <section class="features">
+    <div class="grid grid-3">
+      <div class="card feature"><div class="icon">{% icon 'upload' %}</div><h3>Import from anything</h3><p class="muted small" style="margin-top:.4rem">Paste a list, or upload CSV, Excel, Word, PDF or a screenshot. Review every address before it's saved.</p></div>
+      <div class="card feature"><div class="icon">{% icon 'mail' %}</div><h3>Templates that sound like you</h3><p class="muted small" style="margin-top:.4rem">Role-specific starters with a document-style editor, live preview and smart placeholders.</p></div>
+      <div class="card feature"><div class="icon">{% icon 'sparkles' %}</div><h3>Careful AI, only if you ask</h3><p class="muted small" style="margin-top:.4rem">Tailor your resume to a job with an open model. Invented numbers or skills are blocked.</p></div>
+    </div>
+  </section>
+</main>
+{% endblock %}

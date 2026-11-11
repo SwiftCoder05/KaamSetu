@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load kaam %}
+{% block body %}
+{% with p=request.path %}
+<div class="topbar">
+  <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">K</span><span class="brand-name">KaamSetu</span></a>
+  <details>
+    <summary>Menu</summary>
+    {% include "_nav.html" %}
+  </details>
+</div>
+<div class="shell">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" href="{% url 'dashboard' %}"><span class="brand-mark">K</span><span class="brand-name">KaamSetu</span></a>
+    {% include "_nav.html" %}
+    <div class="sidebar-foot">
+      <span class="avatar">{{ request.user.profile.sender_name|first|upper }}</span>
+      <div class="grow">
+        <div class="small" style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ request.user.profile.sender_name }}</div>
+        <div class="tiny muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ request.user.email }}</div>
+      </div>
+      <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}
+        <button class="icon-btn" title="Sign out" aria-label="Sign out">{% icon 'logout' 16 %}</button>
+      </form>
+    </div>
+  </aside>
+  <main class="main" id="main">
+    <div class="page">{% block content %}{% endblock %}</div>
+  </main>
+</div>
+{% endwith %}
+{% endblock %}

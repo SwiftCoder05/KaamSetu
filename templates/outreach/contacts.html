@@ -1,0 +1,67 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Contacts{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">Tech job hunt</div><h1>Contacts</h1><p>Recruiters and hiring managers you plan to reach. {{ total }} saved.</p></div>
+  <a class="btn primary" href="{% url 'contact_import' %}">{% icon 'plus' 16 %} Add contacts</a>
+</div>
+
+{% if total == 0 %}
+  <div class="empty">
+    <span class="empty-icon tone-indigo">{% icon 'users' 24 %}</span>
+    <h3>No contacts yet</h3>
+    <p>Paste a list of emails or upload a CSV, Excel, Word, PDF or a screenshot. You'll review everything before it's saved.</p>
+    <a class="btn primary" href="{% url 'contact_import' %}">{% icon 'upload' 16 %} Import contacts</a>
+  </div>
+{% else %}
+  <form method="get" class="row" style="margin-bottom:1rem">
+    <label class="search-box">{% icon 'search' 16 %}<input type="search" name="q" value="{{ q }}" placeholder="Search email, name, company or role" aria-label="Search contacts"></label>
+    <button class="btn">Search</button>
+    {% if q or request.GET.filter %}<a class="btn ghost" href="{% url 'contact_list' %}">{% icon 'x' 14 %} Clear</a>{% endif %}
+    <a class="filter-pill {% if request.GET.filter == 'dnc' %}on{% endif %}" href="?filter=dnc">{% icon 'shield' 14 %} Do-not-contact only</a>
+  </form>
+
+  <form method="post" action="{% url 'contact_bulk' %}" id="bulk">{% csrf_token %}
+    <div class="bulk-bar" data-bulk-bar="ids" hidden>
+      <strong><span data-bulk-count>0</span> selected</strong>
+      <select name="op" style="width:auto" aria-label="Bulk action">
+        <option value="dnc_on">Mark do-not-contact</option>
+        <option value="dnc_off">Clear do-not-contact</option>
+        <option value="delete">Delete</option>
+      </select>
+      <button class="btn sm" onclick="if(this.form.op.value==='delete' && !confirm('Delete the selected contacts?')) return false;">Apply to selected</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:36px"><input type="checkbox" data-select-all="ids" aria-label="Select all"></th>
+          <th>Contact</th><th>Company</th><th>Role</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% for c in page %}
+          <tr>
+            <td><input type="checkbox" name="ids" value="{{ c.pk }}" aria-label="Select {{ c.email }}"></td>
+            <td><div class="person"><span class="avatar" style="--h:{{ c.email|hue }}">{{ c.name|default:c.email|initials }}</span><span class="grow">{% if c.name %}<span class="person-name">{{ c.name }}</span><span class="mono tiny muted">{{ c.email }}</span>{% else %}<span class="person-name mono small">{{ c.email }}</span>{% endif %}</span>{% if c.do_not_contact %}<span class="badge bad">do not contact</span>{% endif %}</div></td>
+            <td>{% if c.company %}<span class="company">{{ c.company }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td class="small">{{ c.role_title|default:"—" }}</td>
+            <td style="text-align:right"><a class="btn sm ghost" href="{% url 'contact_edit' c.pk %}">Edit</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="muted" style="text-align:center;padding:2rem">No contacts match.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+  {% if page.has_other_pages %}
+  <div class="row between" style="margin-top:1rem">
+    <span class="small muted">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    <div class="row">
+      {% if page.has_previous %}<a class="btn sm" href="?q={{ q|urlencode }}&page={{ page.previous_page_number }}">Previous</a>{% endif %}
+      {% if page.has_next %}<a class="btn sm" href="?q={{ q|urlencode }}&page={{ page.next_page_number }}">Next</a>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

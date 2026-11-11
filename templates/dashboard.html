@@ -1,0 +1,80 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ greeting }}{% if first_name %}, {{ first_name }}{% endif %}</h1>
+    <p>{{ today|date:"l, j F" }} · Here's how your job outreach is going.</p>
+  </div>
+  <a class="btn primary" href="{% url 'campaign_new' %}">{% icon 'send' 15 %} New campaign</a>
+</div>
+
+{% if not conn %}
+<div class="alert warn" style="margin-bottom:1rem">
+  {% icon 'mail' 16 %}
+  <div class="grow"><strong>Connect Gmail to start sending</strong>You can prepare contacts, templates and resumes now. Sending needs a Gmail app password.</div>
+  <a class="btn sm" href="{% url 'settings' %}">Connect Gmail</a>
+</div>
+{% endif %}
+
+{% if steps_done < 4 %}
+<section class="card setup" style="margin-bottom:1rem">
+  <div class="card-head">
+    <div><h2>Finish setting up</h2><p class="small muted">{{ steps_done }} of 4 steps done</p></div>
+    <div class="progress slim setup-bar" aria-hidden="true"><span class="p-ok" style="width:{{ steps_done|pct:4 }}%"></span></div>
+  </div>
+  <div class="setup-list">
+    {% for title, desc, done, url in steps %}
+    <a class="setup-item {% if done %}done{% endif %}" href="{{ url }}">
+      <span class="tick">{% if done %}{% icon 'check' 12 %}{% endif %}</span>
+      <span class="grow"><span class="t">{{ title }}</span><span class="small muted">{{ desc }}</span></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="card overview" style="margin-bottom:1rem">
+  <div class="metric"><span class="metric-label">Contacts</span><span class="metric-value">{{ counts.contacts }}</span></div>
+  <div class="metric"><span class="metric-label">Templates</span><span class="metric-value">{{ counts.templates }}</span></div>
+  <div class="metric"><span class="metric-label">Resumes</span><span class="metric-value">{{ counts.resumes }}</span></div>
+  <div class="metric"><span class="metric-label">Sent in last 24 h</span><span class="metric-value">{{ sent_24h }}<span class="metric-of"> / {{ daily_limit }}</span></span></div>
+</section>
+
+<div class="dash-grid">
+  <section class="card">
+    <div class="card-head"><h2>Recent campaigns</h2>{% if recent %}<a class="small" href="{% url 'campaign_list' %}">View all</a>{% endif %}</div>
+    {% if recent %}
+      <div class="list">
+        {% for c in recent %}
+        <a class="list-row" href="{% url 'campaign_detail' c.pk %}">
+          <span class="grow">
+            <span class="list-title">{{ c.name }}</span>
+            <span class="tiny muted">{{ c.c.accepted }} of {{ c.c.total }} sent · {{ c.created_at|date:"j M" }}</span>
+          </span>
+          <span class="progress slim list-bar" aria-hidden="true"><span class="p-ok" style="width:{{ c.c.accepted|pct:c.c.total }}%"></span><span class="p-bad" style="width:{{ c.c.failed|pct:c.c.total }}%"></span></span>
+          <span class="badge dot {% status_tone c.status %}">{{ c.status }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty compact">
+        <h3>No campaigns yet</h3>
+        <p>When you send a template to a group of contacts, it shows up here with its progress.</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="card about">
+    <h2>How KaamSetu works</h2>
+    <p class="small muted" style="margin:.25rem 0 1rem">Job applications by email, sent from your own Gmail, with a resume that matches each job.</p>
+    <ol class="how">
+      <li><strong>Add recruiters</strong><span>Paste emails or import a CSV, Excel, Word, PDF or screenshot. You review everything before it's saved.</span></li>
+      <li><strong>Write your email</strong><span>Start from a role template or let AI draft one from the job post. Names and companies fill in for each person.</span></li>
+      <li><strong>Tailor your resume</strong><span>Get an ATS match score for a job description and accept or decline each suggested change. It stays one page.</span></li>
+      <li><strong>Send safely</strong><span>Preview every email, confirm once, and KaamSetu sends in small batches within your daily limit.</span></li>
+    </ol>
+  </section>
+</div>
+{% endblock %}

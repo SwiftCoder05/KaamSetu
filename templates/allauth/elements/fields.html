@@ -1,0 +1,12 @@
+{% if attrs.form.non_field_errors %}<div class="alert bad" role="alert">{{ attrs.form.non_field_errors|join:" " }}</div>{% endif %}
+{% for field in attrs.form %}{% if field.is_hidden %}{{ field }}{% else %}
+<div class="field">
+  {% if field.widget_type == "checkbox" %}
+    <label class="row" for="{{ field.id_for_label }}" style="gap:.5rem;font-weight:500">{{ field }} <span>{{ field.label }}</span></label>
+  {% else %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}
+  {% endif %}
+  {% if field.help_text %}<div class="help">{{ field.help_text|safe }}</div>{% endif %}
+  {% for e in field.errors %}<div class="err">{{ e }}</div>{% endfor %}
+</div>
+{% endif %}{% endfor %}

@@ -1,0 +1,19 @@
+{% load kaam %}
+{# Friendly "AI is off" card with a waving robot. Params: title, text, form_id (optional: submit an existing form) #}
+<div class="ai-invite{% if no_robot %} plain{% endif %}">
+  <div class="ai-invite-text">
+    <span class="ai-bubble">Hi there! 👋</span>
+    <h3>{{ title|default:"Want a hand from AI?" }}</h3>
+    <p>{{ text }}</p>
+    {% if form_id %}
+      <button type="submit" form="{{ form_id }}" class="btn primary sm">{% icon 'sparkles' 14 %} Turn AI on</button>
+    {% else %}
+      <form method="post" action="{% url 'ai_toggle' %}">{% csrf_token %}
+        <input type="hidden" name="enabled" value="1"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn primary sm">{% icon 'sparkles' 14 %} Turn AI on</button>
+      </form>
+    {% endif %}
+    <p class="ai-fine">Nothing is sent to the model until you press a button.</p>
+  </div>
+  {% if not no_robot %}{% include "_robot.html" %}{% endif %}
+</div>

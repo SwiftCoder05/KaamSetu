@@ -1,0 +1,11 @@
+{% load allauth %}
+{{ attrs.errors }}
+<div class="field">
+  {% if attrs.type == "checkbox" or attrs.type == "radio" %}
+    <label class="row" for="{{ attrs.id }}" style="gap:.5rem;font-weight:500"><input {% if attrs.checked %}checked{% endif %} {% if attrs.name %}name="{{ attrs.name }}"{% endif %} id="{{ attrs.id }}" {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %} type="{{ attrs.type }}"> <span>{% slot label %}{% endslot %}</span></label>
+  {% else %}
+    <label for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
+    <input {% if attrs.required %}required{% endif %} {% if attrs.disabled %}disabled{% endif %} {% if attrs.name %}name="{{ attrs.name }}"{% endif %} id="{{ attrs.id }}" {% if attrs.placeholder %}placeholder="{{ attrs.placeholder }}"{% endif %} {% if attrs.autocomplete %}autocomplete="{{ attrs.autocomplete }}"{% endif %} {% if attrs.value is not None %}value="{{ attrs.value }}"{% endif %} type="{{ attrs.type }}">
+  {% endif %}
+  {% if slots.help_text %}<div class="help">{% slot help_text %}{% endslot %}</div>{% endif %}
+</div>
