@@ -1,4 +1,5 @@
 Django>=5.2,<6
+django-allauth[mfa,socialaccount]>=65
 nh3>=0.3
 cryptography>=44
 openpyxl>=3.1
@@ -12,6 +13,8 @@ httpx>=0.28
 python-dotenv>=1.0
 dj-database-url>=2.3
 pytesseract>=0.3
+mammoth>=1.8
+pypdfium2>=4.30
 Pillow>=11
 
 # production server (Render)
