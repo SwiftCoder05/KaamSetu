@@ -119,8 +119,8 @@ AI is **off by default**, and only runs when *you* press the button. Nothing hap
 | Provider | Setting | Notes |
 |---|---|---|
 | 🏠 **Ollama** (local) | `AI_PROVIDER=ollama` | Free. Run `ollama pull qwen3:4b` (8 GB RAM is enough) |
-| ☁️ **Ollama Cloud** | `AI_PROVIDER=ollama_cloud` + `OLLAMA_API_KEY` | No local RAM needed |
-| ✨ **Gemini** | `AI_PROVIDER=gemini` + `GEMINI_API_KEY` | Free tier available |
+| ☁️ **Ollama Cloud** | `AI_PROVIDER=ollama_cloud`, `OLLAMA_BASE_URL=https://ollama.com`, `OLLAMA_API_KEY`, `OLLAMA_MODEL` | No local RAM needed. Use this on Render |
+| ✨ **Gemini** | `AI_PROVIDER=gemini` + `GEMINI_API_KEY` | Free tier available. Recommended for the deployed app |
 | 🚫 **Off** | `AI_PROVIDER=none` | Disables AI completely |
 
 🛡️ **Anti-fabrication guard:** suggestions containing numbers that aren't in your resume are blocked, and new skills are marked *"accept only if true"*.

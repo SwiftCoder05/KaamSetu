@@ -98,7 +98,9 @@ class OllamaCloudProvider:
     def __init__(self, api_key: str, model: str, base_url: str = "https://ollama.com/v1", client: httpx.Client | None = None):
         self.api_key = api_key
         self.model = model
-        self.base_url = base_url.rstrip("/")
+        base = base_url.rstrip("/")
+        # OLLAMA_BASE_URL is the site root (https://ollama.com); the OpenAI-style API lives under /v1.
+        self.base_url = base if base.endswith("/v1") else base + "/v1"
         self._client = client
 
     def generate_json(self, system: str, user: str, schema: dict | None = None) -> str:
@@ -123,9 +125,9 @@ class OllamaCloudProvider:
         if res.status_code == 429:
             raise AiQuotaError()
         if res.status_code in (401, 403):
-            raise AiUnavailableError("Ollama Cloud rejected the API key. Check OLLAMA_API_KEY in .env.")
+            raise AiUnavailableError("Ollama Cloud rejected the API key. Check OLLAMA_API_KEY in your environment variables.")
         if res.status_code == 404:
-            raise AiUnavailableError(f'Ollama Cloud has no model "{self.model}". Check OLLAMA_CLOUD_MODEL in .env.')
+            raise AiUnavailableError(f'Ollama Cloud has no model "{self.model}". Check OLLAMA_MODEL in your environment variables.')
         if res.status_code >= 400:
             raise AiUnavailableError(f"Ollama Cloud returned an error ({res.status_code}).")
         try:
@@ -161,6 +163,8 @@ class GeminiProvider:
                 client.close()
         if res.status_code == 429:
             raise AiQuotaError()
+        if res.status_code == 404:
+            raise AiUnavailableError(f'Gemini has no model "{self.model}" available to this key. Check GEMINI_MODEL in your environment variables.')
         if res.status_code in (400, 401, 403):
             raise AiUnavailableError("The AI provider rejected the request. Check GEMINI_API_KEY and GEMINI_MODEL on the server.")
         if res.status_code >= 400:

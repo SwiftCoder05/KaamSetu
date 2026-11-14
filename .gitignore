@@ -8,3 +8,6 @@ staticfiles/
 .pytest_cache/
 server.log
 server.err.log
+.env.*
+!.env.example
+!.env.production.example

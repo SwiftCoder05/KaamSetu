@@ -3,12 +3,18 @@
 import os
 from pathlib import Path
 
-import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from .envconfig import build_database, validate_ai, validate_production
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+# Two separate files: ".env" for your laptop, ".env.production" for the deployed app.
+# Select production with APP_ENV=production (or point ENV_FILE at any file). Real environment variables, such as
+# the ones set in the Render dashboard, always win over file values, and a missing file is fine.
+APP_ENV = os.environ.get("APP_ENV", "local").strip().lower()
+ENV_FILE = os.environ.get("ENV_FILE") or (".env.production" if APP_ENV == "production" else ".env")
+load_dotenv(BASE_DIR / ENV_FILE)
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -25,6 +31,13 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+# Render sets this to your service's hostname (e.g. kaamsetu.onrender.com); trust it automatically.
+_render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if _render_host:
+    if _render_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_render_host)
+    if f"https://{_render_host}" not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{_render_host}")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -45,6 +58,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # serves collected static files in production
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -73,13 +87,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "kaamsetu.wsgi.application"
 
-# SQLite by default (zero setup). Set DATABASE_URL to a Postgres URL (e.g. Supabase) for production.
-DATABASES = {
-    "default": dj_database_url.parse(
-        os.environ.get("DATABASE_URL") or f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=60,
-    )
-}
+# Database comes from DATABASE_URL: local PostgreSQL on a laptop, Neon on Render (SSL is forced when DEBUG is off).
+# SQLite is only a zero-setup fallback for development when DATABASE_URL is empty. See kaamsetu/envconfig.py.
+DATABASES = {"default": build_database(os.environ.get("DATABASE_URL", ""), debug=DEBUG, sqlite_path=BASE_DIR / "db.sqlite3")}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -96,6 +106,10 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
 
 # Uploaded resumes live outside any public URL; they are served only through an owner-checked view.
 PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
@@ -114,7 +128,11 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_SIGNUP_FORM_CLASS = "accounts.forms.SignupExtrasForm"  # adds "Your name"
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"  # nobody can sign in until they click the emailed link
+# mandatory (default): nobody can sign in until they click the emailed link. optional | none: no link is required.
+EMAIL_VERIFICATION = os.environ.get("EMAIL_VERIFICATION", "mandatory").strip().lower()
+if EMAIL_VERIFICATION not in {"mandatory", "optional", "none"}:
+    raise ImproperlyConfigured("EMAIL_VERIFICATION must be one of: mandatory, optional, none.")
+ACCOUNT_EMAIL_VERIFICATION = EMAIL_VERIFICATION
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = False
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[KaamSetu] "
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
@@ -156,7 +174,7 @@ if os.environ.get("EMAIL_BACKEND"):
     EMAIL_BACKEND = os.environ["EMAIL_BACKEND"]
 elif EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-elif DEBUG:
+elif DEBUG or EMAIL_VERIFICATION == "none":
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # links are printed in the server log
 else:
     raise ImproperlyConfigured("Set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD: verification and password-reset emails must be deliverable.")
@@ -174,16 +192,29 @@ DEFAULT_DAILY_LIMIT = int(os.environ.get("DEFAULT_DAILY_LIMIT", "40"))
 SEND_BATCH_SIZE = int(os.environ.get("SEND_BATCH_SIZE", "5"))
 SEND_GAP_SECONDS = float(os.environ.get("SEND_GAP_SECONDS", "1.5"))
 
-# AI (optional, opt-in per user). AI_PROVIDER: ollama | ollama_cloud | gemini | none
+# AI (optional, opt-in per user). AI_PROVIDER: ollama (local) | ollama_cloud (Render) | gemini | none
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "ollama").strip().lower()
-OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "")
-OLLAMA_CLOUD_URL = os.environ.get("OLLAMA_CLOUD_URL", "https://ollama.com/v1")
-OLLAMA_CLOUD_MODEL = os.environ.get("OLLAMA_CLOUD_MODEL", "deepseek-v4.1-flash")
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
+OLLAMA_API_KEY = os.environ.get("OLLAMA_API_KEY", "").strip()
+if AI_PROVIDER == "ollama_cloud":
+    # Cloud reads the same two variables as local; the older OLLAMA_CLOUD_* names still work as fallbacks.
+    OLLAMA_BASE_URL = (os.environ.get("OLLAMA_BASE_URL") or os.environ.get("OLLAMA_CLOUD_URL") or "https://ollama.com").strip()
+    OLLAMA_MODEL = (os.environ.get("OLLAMA_MODEL") or os.environ.get("OLLAMA_CLOUD_MODEL") or "").strip()
+    OLLAMA_CLOUD_URL, OLLAMA_CLOUD_MODEL = OLLAMA_BASE_URL, OLLAMA_MODEL
+else:
+    OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").strip()
+    OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:4b").strip()
+    OLLAMA_CLOUD_URL = os.environ.get("OLLAMA_CLOUD_URL", "https://ollama.com")
+    OLLAMA_CLOUD_MODEL = os.environ.get("OLLAMA_CLOUD_MODEL", "")
 OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "600"))  # seconds to wait for a local reply
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+
+validate_ai(
+    provider=AI_PROVIDER, debug=DEBUG, base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL,
+    ollama_api_key=OLLAMA_API_KEY, gemini_api_key=GEMINI_API_KEY.strip(),
+)
+if not DEBUG:
+    validate_production(secret_key_set=bool(SECRET_KEY), token_key_set=bool(TOKEN_ENCRYPTION_KEY))
 
 # Optional TTF font for PDF export (full Unicode). Falls back to common system fonts, then Helvetica (Latin-1 only).
 PDF_FONT_PATH = os.environ.get("PDF_FONT_PATH", "")
