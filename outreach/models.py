@@ -4,10 +4,20 @@ Every row belongs to one user (`owner`). Views always query through `owner=reque
 so one user can never read or change another user's data (tests/test_isolation.py checks this).
 """
 
+import hashlib
+import json
+from datetime import timedelta
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from kaamsetu import crypto
+
+
+def context_hash(ctx: dict) -> str:
+    """Fingerprint of the job details an email was written from (to notice later edits)."""
+    return hashlib.sha256(json.dumps(ctx or {}, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
 
 
 class Contact(models.Model):
@@ -64,6 +74,11 @@ class MailConnection(models.Model):
 
 
 class Campaign(models.Model):
+    class Personalisation(models.TextChoices):
+        BASIC = "basic", "Basic: fill placeholders per recipient"
+        AI = "ai", "AI: write a unique email per recipient"
+        MANUAL = "manual", "Manual: the same email for everyone"
+
     class Status(models.TextChoices):
         DRAFT = "draft"
         CONFIRMED = "confirmed"
@@ -77,6 +92,12 @@ class Campaign(models.Model):
     template = models.ForeignKey(EmailTemplate, on_delete=models.SET_NULL, null=True, blank=True, related_name="campaigns")
     resume_version = models.ForeignKey("resumes.ResumeVersion", on_delete=models.SET_NULL, null=True, blank=True, related_name="campaigns")
     sender_name = models.CharField(max_length=120)
+    personalisation = models.CharField(max_length=8, choices=Personalisation.choices, default=Personalisation.BASIC)
+    # Inputs for AI personalisation (only used while the campaign is a draft; the generated text lives on each Recipient).
+    job_description = models.TextField(blank=True)
+    ai_instructions = models.CharField(max_length=1000, blank=True)
+    # True: every recipient uses the campaign-level job_description (shared JD mode); False: each recipient has their own.
+    shared_jd = models.BooleanField(default=False)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
     pause_reason = models.CharField(max_length=40, blank=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
@@ -121,6 +142,13 @@ class CampaignAttachment(models.Model):
 
 
 class Recipient(models.Model):
+    class Source(models.TextChoices):
+        TEMPLATE = "template", "Template"  # deterministic placeholder rendering (basic / manual campaigns)
+        PENDING = "pending", "Waiting for AI"  # AI campaign, not generated yet; subject/body hold the template rendering meanwhile
+        AI = "ai", "AI-generated"  # written by the model and passed every guard
+        FALLBACK = "fallback", "Fallback: template"  # AI failed or was rejected; template rendering used instead (see content_note)
+        EDITED = "edited", "Edited"  # changed by the user in the preview
+
     class Status(models.TextChoices):
         QUEUED = "queued"
         SENDING = "sending"
@@ -134,12 +162,26 @@ class Recipient(models.Model):
     name = models.CharField(max_length=120, blank=True)
     subject = models.CharField(max_length=400)
     body = models.TextField()
+    content_source = models.CharField(max_length=10, choices=Source.choices, default=Source.TEMPLATE)
+    content_note = models.CharField(max_length=300, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.QUEUED)
     attempts = models.PositiveSmallIntegerField(default=0)
     error = models.CharField(max_length=300, blank=True)
     message_id = models.CharField(max_length=300, blank=True)
     claimed_at = models.DateTimeField(null=True, blank=True)
     sent_at = models.DateTimeField(null=True, blank=True)
+
+    # AI personalisation (draft campaigns only; the send engine never reads these).
+    # job_context: {"company", "designation", "job_title", "job_description", "job_url", "instructions"}. A JSON field:
+    # these values are always read and written together and never filtered on, so columns would only add migrations.
+    job_context = models.JSONField(default=dict, blank=True)
+    gen_info = models.JSONField(default=dict, blank=True)  # last result: warnings, rationale, skills, context_hash, ...
+    gen_error = models.CharField(max_length=300, blank=True)  # last generation failure (retryable)
+    gen_started_at = models.DateTimeField(null=True, blank=True)  # set while a graph run owns this recipient
+    generated_at = models.DateTimeField(null=True, blank=True)
+    approved = models.BooleanField(default=False)  # the user pressed "Approve" on this email
+
+    GEN_STALE_AFTER = timedelta(minutes=15)
 
     class Meta:
         ordering = ["id"]
@@ -149,6 +191,37 @@ class Recipient(models.Model):
             models.Index(fields=["status", "sent_at"]),  # rolling 24h daily-limit count
             models.Index(fields=["status", "claimed_at"], name="recipient_stale_idx"),  # find stuck 'sending' rows
         ]
+
+    @property
+    def is_generating(self) -> bool:
+        return bool(self.gen_started_at and self.gen_started_at > timezone.now() - self.GEN_STALE_AFTER)
+
+    @property
+    def gen_status(self) -> str:
+        """What the review page shows: generating | pending | failed | needs_attention | ready | edited | approved | none."""
+        if self.is_generating:
+            return "generating"
+        src = self.content_source
+        if src == self.Source.PENDING:
+            return "failed" if self.gen_error else "pending"
+        if src == self.Source.FALLBACK:
+            return "needs_attention"
+        if self.approved:
+            return "approved"
+        return {self.Source.EDITED: "edited", self.Source.AI: "ready"}.get(src, "none")
+
+    GEN_LABELS = {"generating": "Writing…", "pending": "Waiting for AI", "failed": "Failed: retry", "needs_attention": "Needs attention: template used",
+                  "ready": "AI draft: review it", "edited": "Edited by you", "approved": "Approved"}
+
+    @property
+    def gen_label(self) -> str:
+        return self.GEN_LABELS.get(self.gen_status) or self.get_content_source_display()
+
+    @property
+    def context_changed(self) -> bool:
+        """The job details were changed after this email was written, so it may no longer match them."""
+        h = (self.gen_info or {}).get("context_hash")
+        return bool(h) and h != context_hash(self.job_context)
 
     def __str__(self):
         return f"{self.email} [{self.status}]"

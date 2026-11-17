@@ -16,21 +16,61 @@
   {% if not conn %}
     <div class="alert warn" style="margin-bottom:1rem">{% icon 'mail' %}<div class="grow"><strong>Connect Gmail to send</strong>Your draft is saved. Connect Gmail with an app password, then come back here.</div><a class="btn sm" href="{% url 'settings' %}">Connect</a></div>
   {% endif %}
+  {% if is_ai %}
+    <div class="alert {% if ai_external %}warn{% else %}info{% endif %}" id="ai-box" style="margin-bottom:1rem"
+         data-url="{% url 'campaign_personalise' c.pk %}" data-pending="{{ pending }}" data-total="{{ counts.total }}" data-concurrency="{{ concurrency }}" data-ai-enabled="{% if ai_enabled %}1{% endif %}">
+      {% icon 'sparkles' 16 %}
+      <div class="grow">
+        <strong id="ai-title">{% if pending %}Writing personalised emails…{% else %}AI personalisation finished{% endif %}</strong>
+        <span id="ai-text"><span id="ai-progress" {% if not pending %}hidden{% endif %}><span id="ai-count">{{ pending }}</span> of {{ counts.total }} email{{ counts.total|pluralize }} still to write ({{ concurrency }} at a time; each recipient runs its own workflow). </span>
+          {% if ai_external %}Provider: <code>{{ ai_label }}</code> (external: first name, company, designation, job details and your resume text are sent to this provider; never the email address){% else %}Runs on this server.{% endif %}
+          Review every email, edit or regenerate any of them, and approve. Nothing is sent until you confirm below.</span>
+        <span id="ai-error" class="small" hidden></span>
+        <span class="small" id="ai-failed" {% if not failed %}hidden{% endif %}><span id="ai-failed-count">{{ failed }}</span> email(s) failed. Open them and press Retry; the others are kept.</span>
+        <span class="small" id="ai-fallbacks" {% if not fallbacks %}hidden{% endif %}><span id="ai-fallback-count">{{ fallbacks }}</span> email(s) use your template because the AI draft was rejected or skipped (marked “Needs attention”).</span>
+      </div>
+      <div class="row" style="flex-wrap:wrap">
+        <button type="button" class="btn sm" id="ai-resume" hidden>{% icon 'play' 14 %} Continue</button>
+        <a class="btn sm ghost" href="{% url 'campaign_context' c.pk %}">Edit job details</a>
+        <form method="post" action="{% url 'campaign_action' c.pk 'use_template' %}" id="ai-skip" {% if not pending and not failed %}hidden{% endif %}
+              data-confirm="Stop AI personalisation and use your template for the waiting and failed emails?">{% csrf_token %}
+          <button class="btn sm ghost">Use template for the rest</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
   {% if unfilled %}
-    <div class="alert bad" style="margin-bottom:1rem"><div><strong>{{ unfilled }} email{{ unfilled|pluralize }} still contain{{ unfilled|pluralize:"s," }} a &#123;&#123;placeholder&#125;&#125;</strong>Those contacts are missing a value (for example a name). They will be marked failed instead of sent. Add a fallback like <code>&#123;&#123;first_name|there&#125;&#125;</code> in the template, or fill in the contact, then create the campaign again.</div></div>
+    <div class="alert bad" style="margin-bottom:1rem"><div><strong>{{ unfilled }} email{{ unfilled|pluralize }} still contain{{ unfilled|pluralize:"s," }} a &#123;&#123;placeholder&#125;&#125;</strong>Those contacts are missing a value (for example a name), so the campaign cannot be sent yet. Edit those emails below (marked ⚠), or add a fallback like <code>&#123;&#123;first_name|there&#125;&#125;</code> in the template and create the campaign again.</div></div>
   {% endif %}
   <div class="editor-layout">
     <section class="card">
       <div class="card-head"><h2>{% icon 'eye' 16 %} Preview</h2>
         <select id="pick-preview" style="width:auto;max-width:100%" aria-label="Preview recipient">
-          {% for r in recipients %}<option value="{{ forloop.counter0 }}">{{ r.email }}{% if r.unfilled %} ⚠{% endif %}</option>{% endfor %}
+          {% for r in recipients %}<option value="{{ forloop.counter0 }}" data-rid="{{ r.pk }}">{{ r.email }}{% if r.unfilled %} ⚠{% endif %}</option>{% endfor %}
         </select>
       </div>
       {% for r in recipients %}
-      <article class="preview-item" data-i="{{ forloop.counter0 }}" {% if not forloop.first %}hidden{% endif %}>
-        <div class="small muted">To: {{ r.name|default:"" }} &lt;{{ r.email }}&gt;</div>
-        <div style="font-weight:600;margin:.35rem 0 .9rem">{{ r.subject|highlight_placeholders }}</div>
-        <div class="email-preview" style="border-top:1px solid var(--line);padding-top:.9rem">{{ r.body|safe_email_html }}</div>
+      <article class="preview-item" data-i="{{ forloop.counter0 }}" data-rid="{{ r.pk }}" data-source="{{ r.content_source }}" data-gen="{{ r.gen_status }}" data-unfilled="{% if r.unfilled %}1{% endif %}" {% if not forloop.first %}hidden{% endif %}
+               data-edit-url="{% url 'recipient_edit' c.pk r.pk %}" data-regen-url="{% url 'recipient_regenerate' c.pk r.pk %}" data-approve-url="{% url 'recipient_approve' c.pk r.pk %}">
+        <div class="row between">
+          <div class="small muted">To: {{ r.name|default:"" }} &lt;{{ r.email }}&gt;</div>
+          <span class="badge {% status_tone r.gen_status %}" data-source>{{ r.gen_label }}</span>
+        </div>
+        {% if is_ai %}<div class="tiny muted" data-context>{{ r.job_context.company|default:"No company" }}{% if r.job_context.job_title or r.gen_info.job_title %} · {{ r.job_context.job_title|default:r.gen_info.job_title }}{% endif %}{% if r.gen_info.mode == "general" %} · general introduction{% endif %}</div>{% endif %}
+        <div class="tiny muted" data-note {% if not r.content_note %}hidden{% endif %}>{{ r.content_note }}</div>
+        <div class="tiny" style="color:var(--bad)" data-error {% if not r.gen_error or r.content_source != 'pending' %}hidden{% endif %}>{{ r.gen_error }}</div>
+        <div class="tiny" style="color:#7a4b00" data-stale {% if not r.context_changed %}hidden{% endif %}>The job details changed after this email was written. Regenerate it to match them.</div>
+        <ul class="warn-list" data-warnings {% if not r.gen_info.warnings %}hidden{% endif %}>{% for w in r.gen_info.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+        <input data-subject-input maxlength="400" aria-label="Subject" hidden style="margin:.35rem 0 .9rem">
+        <div data-subject style="font-weight:600;margin:.35rem 0 .9rem">{{ r.subject|highlight_placeholders }}</div>
+        <div class="email-preview" data-body style="border-top:1px solid var(--line);padding-top:.9rem">{{ r.body|safe_email_html }}</div>
+        <div class="row" style="margin-top:.8rem">
+          <button type="button" class="btn sm" data-edit>Edit</button>
+          <button type="button" class="btn sm primary" data-save hidden>Save</button>
+          <button type="button" class="btn sm ghost" data-cancel hidden>Cancel</button>
+          {% if is_ai %}<button type="button" class="btn sm" data-regen {% if r.gen_status == 'pending' or r.gen_status == 'generating' %}hidden{% endif %}>{% icon 'sparkles' 14 %} <span data-regen-label>{% if r.gen_status == 'failed' %}Retry{% else %}Regenerate{% endif %}</span></button>
+          <button type="button" class="btn sm" data-approve {% if r.gen_status == 'pending' or r.gen_status == 'generating' or r.gen_status == 'failed' or r.gen_status == 'approved' %}hidden{% endif %}>Approve</button>{% endif %}
+        </div>
         {% if c.resume_version %}<div class="row" style="margin-top:.8rem"><span class="badge info">{% icon 'file' 12 %} PDF attachment</span></div>{% elif attachment %}<div class="row" style="margin-top:.8rem"><span class="badge info">{% icon 'file' 12 %} {{ attachment.filename }} · {{ attachment.size|filesizeformat }}</span></div>{% endif %}
       </article>
       {% endfor %}
@@ -45,7 +85,7 @@
         </ul>
         <form method="post" action="{% url 'campaign_confirm' c.pk %}" id="confirm-form" class="stack" data-has-resume="{% if c.resume_version or attachment %}1{% else %}0{% endif %}">{% csrf_token %}
           <label class="row small" style="align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" name="confirm" value="yes" required style="margin-top:2px"> <span>I've reviewed these emails and want to send them from my Gmail account.</span></label>
-          <button class="btn primary lg" {% if not conn %}disabled{% endif %}>{% icon 'send' 16 %} Send {{ counts.total }} email{{ counts.total|pluralize }}</button>
+          <button class="btn primary lg" id="send-btn" data-conn="{% if conn %}1{% endif %}" {% if not conn or pending or unfilled %}disabled{% endif %}>{% icon 'send' 16 %} Send {{ counts.total }} email{{ counts.total|pluralize }}</button>
         </form>
       </section>
       <form method="post" action="{% url 'campaign_action' c.pk 'delete' %}" data-confirm="Discard this draft?">{% csrf_token %}

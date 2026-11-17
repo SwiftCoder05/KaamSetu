@@ -36,25 +36,40 @@
     </div>
   </section>
 
-  <section class="card stack">
-    <div class="row between"><h2><span class="muted">2.</span> Recipients</h2><span class="badge info" id="picked">0 selected</span></div>
+  <section class="card stack" id="recipients-section">
+    <div class="row between"><h2><span class="muted">2.</span> Recipients</h2><span class="badge info" id="picked">0 added</span></div>
     {% if errors.contacts %}<div class="alert bad small">{{ errors.contacts }}</div>{% endif %}
-    <input type="search" id="filter" placeholder="Filter by email, name or company" aria-label="Filter contacts">
-    <div class="table-wrap" style="max-height:340px">
-      <table>
-        <thead><tr><th style="width:36px"><input type="checkbox" data-select-all="contacts" aria-label="Select all shown"></th><th>Email</th><th>Name</th><th>Company</th></tr></thead>
-        <tbody id="contact-rows">
-        {% for c in contacts %}
-          <tr data-search="{{ c.email|lower }} {{ c.name|lower }} {{ c.company|lower }}">
-            <td><input type="checkbox" name="contacts" value="{{ c.pk }}" aria-label="{{ c.email }}" {% if c.pk|stringformat:"s" in picked_ids %}checked{% endif %}></td>
-            <td class="mono small">{{ c.email }}</td><td>{{ c.name|default:"—" }}</td><td>{{ c.company|default:"—" }}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
+    <div class="row between">
+      <span class="small muted">Write or paste the email addresses below, one on each line.</span>
+      <button type="button" class="btn" id="open-contacts">{% icon 'users' 16 %} Add from my contacts{% if contacts %} <span class="badge">{{ contacts|length }}</span>{% endif %}</button>
     </div>
-    <p class="tiny muted">Contacts marked do-not-contact are hidden here and are never emailed.</p>
+    <div id="recipient-list" class="rlist" aria-live="polite"></div>
+    <textarea id="notebook" class="notebook" rows="2" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Email addresses, one per line"></textarea>
+    <p class="small" id="notebook-status" aria-live="polite"></p>
+    <div id="hidden-fields"></div>
+    <p class="tiny muted">People you add here are kept with this campaign only. They are <strong>not</strong> added to your Contacts list. Addresses on your do-not-contact list are never emailed.</p>
   </section>
+
+  <dialog id="contacts-dialog" class="rmodal" aria-label="Add from my contacts">
+    <div class="rm-card">
+      <header class="rm-head">
+        <div class="ident"><strong>Add from my contacts</strong><span class="muted small">Pick anyone you have saved. They are added to this campaign only.</span></div>
+        <button type="button" class="rm-x" data-dlg-close aria-label="Close">&times;</button>
+      </header>
+      <div class="rbody">
+        <input type="search" id="contact-filter" placeholder="Search by email, name or company" aria-label="Search contacts" autocomplete="off">
+        <label class="row small" style="margin:.8rem 0 .4rem;font-weight:600"><input type="checkbox" id="pick-all"> Select all shown</label>
+        <div id="contact-pick" class="pick-list"></div>
+        <p class="small muted" id="contact-empty" hidden>No saved contacts match. You can still add new email addresses on the page.</p>
+      </div>
+      <footer class="rm-foot">
+        <span class="small muted" id="pick-count">0 selected</span>
+        <div class="row"><button type="button" class="btn ghost" data-dlg-close>Cancel</button><button type="button" class="btn primary" id="pick-add">Add selected</button></div>
+      </footer>
+    </div>
+  </dialog>
+  {{ contacts_data|json_script:"contacts-data" }}
+  {{ initial_recipients|json_script:"initial-recipients" }}
 
   <section class="card stack" id="resume-choice">
     <h2><span class="muted">3.</span> Attach a resume <span class="muted small" style="font-family:var(--font-sans)">(recommended)</span></h2>
@@ -98,9 +113,52 @@
     </div>
   </section>
 
+  <section class="card stack" id="personalise-choice">
+    <h2><span class="muted">4.</span> Personalisation</h2>
+    {% if errors.personalisation %}<div class="alert bad small">{{ errors.personalisation }}</div>{% endif %}
+    <div class="choice-grid" role="radiogroup" aria-label="Personalisation">
+      <label class="choice">
+        <input type="radio" name="personalisation" value="basic" {% if personalisation == "basic" %}checked{% endif %}>
+        <span class="stat-icon tone-indigo">{% icon 'users' 16 %}</span>
+        <span><strong>Basic</strong><span class="small muted">Fill name, company and role into your template</span></span>
+      </label>
+      <label class="choice">
+        <input type="radio" name="personalisation" value="ai" {% if personalisation == "ai" %}checked{% endif %} {% if not ai_enabled or not ai_configured %}disabled{% endif %}>
+        <span class="stat-icon tone-saffron">{% icon 'sparkles' 16 %}</span>
+        <span><strong>AI</strong><span class="small muted">{% if not ai_configured %}Not configured on this server{% elif not ai_enabled %}Turn AI on in <a href="{% url 'settings' %}">Settings</a> first{% else %}A unique email for each recipient{% endif %}</span></span>
+      </label>
+      <label class="choice">
+        <input type="radio" name="personalisation" value="manual" {% if personalisation == "manual" %}checked{% endif %}>
+        <span class="stat-icon tone-green">{% icon 'copy' 16 %}</span>
+        <span><strong>Manual</strong><span class="small muted">The exact same email for everyone</span></span>
+      </label>
+    </div>
+
+    <div data-panel="manual"><p class="tiny muted">Recipient placeholders use their fallback (e.g. <code>&#123;&#123;first_name|there&#125;&#125;</code> → “there”). A placeholder without a fallback must be edited before sending.</p></div>
+
+    {% if ai_enabled and ai_configured %}
+    <div data-panel="ai" class="stack" style="--gap:.75rem">
+      <div class="alert {% if ai_external %}warn{% else %}info{% endif %} small">{% icon 'shield' 16 %}<div>
+        {% if ai_external %}
+          <strong>External AI provider: <code>{{ ai_label }}</code></strong>
+          For each recipient, the AI receives only: their <strong>first name, company and designation</strong>, the job title, job description and instructions you enter on the next page, your template, your sender name and your resume's text. It never receives their <strong>email address</strong> or the job link.
+        {% else %}
+          <strong>Stays private: runs on this server</strong>
+          The same details are used, and they stay on this server.
+        {% endif %}
+        On the next page you add each recipient's own job details. Emails are then written one recipient at a time. You review and can edit every email before anything is sent. Up to {{ ai_max_recipients }} recipients per campaign, {{ ai_per_hour }} AI emails per hour and {{ ai_per_day }} per day.
+      </div></div>
+      <p class="tiny muted">The AI only uses your resume (attach one from the resume studio so it has facts about you), your template, and each recipient's details. Emails that invent facts, greet the wrong person or claim a relationship are rejected and replaced with your template, clearly marked.</p>
+      {% if ai_external %}
+        <label class="row small" style="align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" name="ai_consent" value="yes" {% if form.ai_consent == "yes" %}checked{% endif %} style="margin-top:2px"> <span>I agree to send these recipient details, job details and my resume text to {{ ai_label }}.</span></label>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
   <div class="row end">
     <a class="btn ghost" href="{% url 'campaign_list' %}">Cancel</a>
-    <button class="btn primary lg">Preview emails {% icon 'arrow' 16 %}</button>
+    <button class="btn primary lg" id="submit-btn"><span id="submit-label">Preview emails</span> {% icon 'arrow' 16 %}</button>
   </div>
 </form>
 {% endif %}
@@ -108,14 +166,107 @@
 {% block scripts %}
 <script>
   (function () {
-    const rows = document.querySelectorAll("#contact-rows tr");
-    const count = () => (document.getElementById("picked").textContent = `${document.querySelectorAll('input[name=contacts]:checked').length} selected`);
-    document.getElementById("filter")?.addEventListener("input", (e) => {
-      const q = e.target.value.trim().toLowerCase();
-      rows.forEach((r) => (r.style.display = !q || r.dataset.search.includes(q) ? "" : "none"));
+    // ── recipients: saved contacts from a pop-up, plus whatever is written in the notebook. Nothing here touches the Contacts list. ──
+    const $ = (id) => document.getElementById(id);
+    const initial = JSON.parse($("initial-recipients").textContent || "[]");
+    const people = initial.filter((p) => p.id).map((p) => ({ ...p, contact_id: p.id })); // saved contacts
+    const saved = JSON.parse($("contacts-data").textContent || "[]");
+    const note = $("notebook");
+    note.value = initial.filter((p) => !p.id).map((p) => (p.name ? `${p.name} <${p.email}>` : p.email)).join("\n");
+    const EMAIL_RE = /[^\s<>,;"']+@[^\s<>,;"']+\.[^\s<>,;"']+/g;
+    const NAME_RE = /^[A-Za-z][A-Za-z .'’-]{0,80}$/;
+    const has = (email) => people.some((p) => p.email.toLowerCase() === email.toLowerCase());
+    const field = (name, value) => Object.assign(document.createElement("input"), { type: "hidden", name, value });
+
+    // "a@b.com", "Priya Sharma <priya@acme.com>", or several addresses separated by commas / spaces
+    function parseNotebook() {
+      const typed = [], bad = [], seen = new Set(people.map((p) => p.email.toLowerCase()));
+      note.value.split(/\n/).forEach((line, i) => {
+        const text = line.trim();
+        if (!text) return;
+        const found = text.match(EMAIL_RE) || [];
+        if (!found.length) return bad.push({ line: i + 1, text });
+        let name = "";
+        if (found.length === 1) {
+          const before = text.slice(0, text.indexOf(found[0])).replace(/[\s<"']+$/g, "").replace(/^["']+/, "").trim();
+          if (before && NAME_RE.test(before)) name = before;
+        }
+        found.forEach((email) => {
+          const key = email.toLowerCase();
+          if (!seen.has(key)) { seen.add(key); typed.push({ email: key, name, company: "", role_title: "" }); }
+        });
+      });
+      return { typed, bad };
+    }
+
+    function renderPeople() {
+      const { typed, bad } = parseNotebook();
+      $("hidden-fields").replaceChildren(...people.map((p) => field("contacts", p.contact_id)), field("new_recipients", JSON.stringify(typed)));
+      const total = people.length + typed.length;
+      $("picked").textContent = `${total} added`;
+      const status = $("notebook-status");
+      status.className = `small ${bad.length ? "bad-text" : "muted"}`;
+      status.textContent = bad.length ? `Line ${bad[0].line} is not an email address: “${bad[0].text.slice(0, 40)}”` : typed.length ? `${typed.length} email address${typed.length === 1 ? "" : "es"} written` : "";
+      const list = $("recipient-list");
+      list.hidden = !people.length;
+      list.replaceChildren(...people.map((p, i) => {
+        const row = document.createElement("div");
+        row.className = "rrow";
+        const av = Object.assign(document.createElement("span"), { className: "avatar sm", textContent: (p.name || p.email).charAt(0).toUpperCase() });
+        const text = document.createElement("span");
+        text.className = "rtext";
+        text.append(Object.assign(document.createElement("strong"), { textContent: p.name || p.email }));
+        const sub = [p.name ? p.email : "", p.company].filter(Boolean).join(" · ");
+        if (sub) text.append(Object.assign(document.createElement("span"), { className: "muted small", textContent: sub }));
+        const tag = Object.assign(document.createElement("span"), { className: "badge", textContent: "saved contact" });
+        const x = Object.assign(document.createElement("button"), { type: "button", className: "rm-x", textContent: "×", ariaLabel: `Remove ${p.email}` });
+        x.addEventListener("click", () => { people.splice(i, 1); renderPeople(); });
+        row.append(av, text, tag, x);
+        return row;
+      }));
+    }
+    // two ruled lines to start; the page grows line by line as you write
+    const fit = () => { note.style.height = "auto"; note.style.height = Math.max(64, Math.ceil(note.scrollHeight / 32) * 32) + "px"; };
+    note.addEventListener("input", () => { fit(); renderPeople(); });
+    window.addEventListener("resize", fit);
+
+    // contacts pop-up
+    const dlg = $("contacts-dialog");
+    const ticks = () => [...dlg.querySelectorAll("#contact-pick input:checked:not(:disabled)")];
+    function renderPick() {
+      const q = $("contact-filter").value.trim().toLowerCase();
+      const shown = saved.filter((c) => !q || `${c.email} ${c.name} ${c.company}`.toLowerCase().includes(q));
+      $("contact-empty").hidden = shown.length > 0;
+      $("contact-pick").replaceChildren(...shown.map((c) => {
+        const label = document.createElement("label");
+        label.className = "pick-row";
+        const cb = Object.assign(document.createElement("input"), { type: "checkbox", value: c.id, disabled: has(c.email), checked: has(c.email) });
+        const text = document.createElement("span");
+        text.className = "rtext";
+        text.append(Object.assign(document.createElement("strong"), { textContent: c.name || c.email }),
+          Object.assign(document.createElement("span"), { className: "muted small", textContent: [c.name ? c.email : "", c.company].filter(Boolean).join(" · ") }));
+        label.append(cb, text);
+        if (cb.disabled) label.append(Object.assign(document.createElement("span"), { className: "badge ok", textContent: "added" }));
+        return label;
+      }));
+      countPick();
+    }
+    const countPick = () => ($("pick-count").textContent = `${ticks().length} selected`);
+    $("open-contacts").addEventListener("click", () => { $("contact-filter").value = ""; $("pick-all").checked = false; renderPick(); dlg.showModal(); });
+    $("contact-filter").addEventListener("input", renderPick);
+    $("pick-all").addEventListener("change", (e) => { dlg.querySelectorAll("#contact-pick input:not(:disabled)").forEach((c) => (c.checked = e.target.checked)); countPick(); });
+    dlg.addEventListener("change", countPick);
+    dlg.addEventListener("click", (e) => { if (e.target === dlg || e.target.closest("[data-dlg-close]")) dlg.close(); });
+    $("pick-add").addEventListener("click", () => {
+      ticks().forEach((cb) => {
+        const c = saved.find((x) => String(x.id) === cb.value);
+        if (c && !has(c.email)) people.push({ contact_id: c.id, email: c.email, name: c.name, company: c.company, role_title: c.role_title });
+      });
+      dlg.close();
+      renderPeople();
     });
-    document.addEventListener("change", count);
-    count();
+    renderPeople();
+    fit();
 
     // Resume choice: show only the panel for the selected option.
     const showPanel = () => {
@@ -124,6 +275,14 @@
     };
     document.querySelectorAll("input[name=resume_source]").forEach((r) => r.addEventListener("change", showPanel));
     showPanel();
+
+    const showMode = () => {
+      const picked = document.querySelector("input[name=personalisation]:checked")?.value;
+      document.querySelectorAll("#personalise-choice [data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== picked));
+      document.getElementById("submit-label").textContent = picked === "ai" ? "Continue to Personalise Emails" : "Preview emails";
+    };
+    document.querySelectorAll("input[name=personalisation]").forEach((r) => r.addEventListener("change", showMode));
+    showMode();
   })();
 </script>
 {% endblock %}

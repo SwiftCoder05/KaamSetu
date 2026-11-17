@@ -2,6 +2,7 @@
 
 import re
 from typing import Protocol
+from urllib.parse import urlparse
 
 import httpx
 from django.conf import settings
@@ -193,3 +194,14 @@ def provider_from_settings() -> AiProvider | None:
 def provider_label() -> str:
     p = provider_from_settings()
     return f"{settings.AI_PROVIDER} · {p.model}" if p else "not configured"
+
+
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "host.docker.internal"}
+
+
+def provider_is_external() -> bool:
+    """True when prompts leave this server (Gemini, Ollama Cloud, or an Ollama on another host)."""
+    kind = settings.AI_PROVIDER
+    if kind == "ollama":
+        return (urlparse(settings.OLLAMA_BASE_URL).hostname or "").lower() not in _LOCAL_HOSTS
+    return kind in ("ollama_cloud", "gemini")

@@ -125,6 +125,21 @@ AI is **off by default**, and only runs when *you* press the button. Nothing hap
 
 🛡️ **Anti-fabrication guard:** suggestions containing numbers that aren't in your resume are blocked, and new skills are marked *"accept only if true"*.
 
+🎯 **Job application email** (*Jobs → Job application email*): enter a company, role and job description and pick a resume version. A LangGraph workflow (`outreach/personalized_email/`) then analyses the job, matches it to evidence in that resume, writes a draft, reviews it, and fact-checks every claim against the resume, with at most one revision. Blocked drafts are never shown as ready. Nothing is sent or saved; you edit and copy the draft. It uses the same provider (`AI_PROVIDER`) and the same 12-per-hour AI limit as the other AI features. The recruiter's email and the job link are never sent to the model.
+
+✉️ **AI campaign personalisation (per recipient):** a campaign can be *Basic* (fill placeholders), *AI* or *Manual* (the same email for everyone). In *AI* mode, setup is two steps:
+
+1. **Campaign setup:** name, template, resume, contacts and the mode, then **Continue to Personalise Emails**.
+2. **Personalise emails:** one card per recipient with their own company, designation, job title, job description, job link (for your reference only) and instructions. Company and designation start from the contact and can be edited without changing the contact. *Use the same job description for all recipients* applies one JD to everyone. Cards collapse, show how many recipients are job-specific, general, or missing a company, and keep your input when you go back (Save progress).
+
+Then each recipient gets **its own LangGraph run** (`outreach/personalization/`): validate input → **two analysts in parallel** (job context: what the role needs; candidate evidence: what in your resume supports it) → merge → generate → independent critic → code-level fabrication guard, with at most **2 refinements**. Without a job description the AI writes a general introduction and never claims an opening. Drafts that invent facts, name another recipient's company, greet the wrong person or claim a relationship are never shown as ready: the recipient keeps your template, marked **Needs attention**.
+
+On the review page you can edit, **Regenerate**, **Retry** (a failed recipient only) and **Approve** each email. Edited or approved emails are only replaced if you confirm, and a job-detail change after writing only flags the email as outdated. Content is frozen when you confirm, and the sender never calls the AI. Generation runs from your browser, `AI_CAMPAIGN_CONCURRENCY` (2) recipients at a time; a failure affects only that recipient. A local 4B model takes several minutes per email; Gemini or Ollama Cloud take seconds.
+
+🔒 **What the model receives per recipient:** first name, company, designation, job title, job description, instructions, your template, your sender name and your resume text. **Never** the recipient's email address or the job link. With local Ollama nothing leaves your machine; with Gemini or Ollama Cloud these details go to that external provider (you must tick a consent box).
+
+Quota is separate from the template writer's: `AI_CAMPAIGN_PER_HOUR` (60), `AI_CAMPAIGN_PER_DAY` (200), `AI_CAMPAIGN_MAX_RECIPIENTS` (50), `AI_CAMPAIGN_CONCURRENCY` (2).
+
 ---
 
 ## 🖼️ Screenshot OCR

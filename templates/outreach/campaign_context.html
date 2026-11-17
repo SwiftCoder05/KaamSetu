@@ -1,0 +1,151 @@
+{% extends "app.html" %}
+{% load kaam static %}
+{% block title %}Personalise emails{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{% url 'campaign_list' %}" id="back-link">← Save and go back to campaigns</a>
+    <h1 style="margin-top:.4rem">Personalise emails</h1>
+    <p><span class="muted">Step 2 of 2 ·</span> {{ c.name }} · give each recipient their own company and job details.</p>
+  </div>
+  <span class="badge info">{% icon 'sparkles' 12 %} AI{% if ai_external %} · {{ ai_label }}{% endif %}</span>
+</div>
+
+<div class="alert {% if ai_external %}warn{% else %}info{% endif %}" style="margin-bottom:1rem">
+  {% icon 'shield' 16 %}
+  <div>
+    <strong>What the AI receives, for each recipient</strong>
+    Their first name, company and designation, the job title, job description, company research and instructions on their card, your template, your sender name and your resume's text.
+    It never receives their email address or the job link (the link is only kept for your own reference).
+    {% if ai_external %}These details are sent to an <strong>external provider</strong> ({{ ai_label }}).{% else %}Everything stays on this server.{% endif %}
+    Nothing is sent as an email until you review every message and confirm.
+  </div>
+</div>
+
+{% if c.template %}
+<section class="card tpl-card" style="margin-bottom:1rem">
+  <div class="row between">
+    <div class="stack" style="--gap:.15rem">
+      <span class="label muted">Your template: one for everyone</span>
+      <strong>{{ c.template.name }}</strong>
+      <span class="small muted">Subject: {{ c.template.subject }}</span>
+    </div>
+    <button type="button" class="btn sm ghost" id="tpl-toggle" aria-expanded="false">{% icon 'eye' 14 %} Preview template</button>
+  </div>
+  <div id="tpl-body" class="email-preview tpl-body" hidden>{{ c.template.body|safe_email_html }}</div>
+  <p class="tiny muted" style="margin-top:.7rem">The AI rewrites this one template separately for each recruiter, using their name and company plus the job description or company research you add below. Without either, it writes a short general introduction.</p>
+</section>
+{% endif %}
+
+<form id="ctx-form" class="stack" novalidate data-save-url="{% url 'campaign_context_save' c.pk %}" data-detail-url="{% url 'campaign_detail' c.pk %}"
+      data-list-url="{% url 'campaign_list' %}" data-ai-ready="{% if ai_ready %}1{% endif %}">
+  <section class="card stack" style="--gap:.8rem">
+    <div class="row between">
+      <label class="row small" style="flex-wrap:nowrap;font-weight:600"><input type="checkbox" id="shared-toggle" {% if c.shared_jd %}checked{% endif %}> Use the same job description for all recipients</label>
+      <div class="row">
+        <span class="badge ok" id="sum-job" title="Recipients with a job description">0 job-specific</span>
+        <span class="badge info" id="sum-notes" title="Company research but no job description: written around the company">0 company-aware</span>
+        <span class="badge info" id="sum-general" title="A company but no job description: a general introduction">0 general</span>
+        <span class="badge warn" id="sum-missing" title="No company and no job description: the email will be generic">0 need a company</span>
+      </div>
+    </div>
+    <div class="field" id="shared-box" {% if not c.shared_jd %}hidden{% endif %}>
+      <label for="shared-jd">Shared job description</label>
+      <textarea id="shared-jd" rows="6" maxlength="{{ limits.job_description }}" placeholder="Paste the job description. It is used for every recipient.">{{ c.job_description }}</textarea>
+      <span class="field-error" data-error-for="shared"></span>
+    </div>
+    <p class="tiny muted">Without a job description the AI writes a short general introduction and will <strong>not</strong> claim there is an opening. Company, designation and job title are editable here without changing your saved contacts.</p>
+  </section>
+
+  <div class="cards-grid" id="cards-grid">
+  {% for k in cards %}
+  <article class="card rcard" data-rid="{{ k.r.pk }}" style="--i:{{ forloop.counter0 }}">
+    <button type="button" class="tile" data-open aria-haspopup="dialog">
+      <span class="tile-top">
+        <span class="avatar" data-avatar>{{ k.initial }}</span>
+        <span class="row" style="gap:.35rem;justify-content:flex-end">
+          {% if k.written %}<span class="badge info" title="An email was already written for this recipient">written</span>{% endif %}
+          <span class="badge" data-chip>…</span>
+          <span class="badge bad" data-card-error hidden>fix errors</span>
+        </span>
+      </span>
+      <span class="ident">
+        <strong data-title-name>{{ k.r.name|default:"Add a name" }}</strong>
+        <span class="muted small" data-email>{{ k.r.email }}</span>
+      </span>
+      <span class="tile-meta">
+        <span data-sum-company>{{ k.c.company|default:"No company yet" }}</span>
+        <span data-sum-title class="muted">{% if k.c.job_title %}· {{ k.c.job_title }}{% endif %}</span>
+      </span>
+      <span class="tile-hint">Click to fill in <span aria-hidden="true">→</span></span>
+    </button>
+    <dialog class="rmodal" aria-label="Details for {{ k.r.email }}">
+     <div class="rm-card">
+      <header class="rm-head">
+        <div class="ident"><strong>Personalise this email</strong><span class="muted small">{{ k.r.email }}</span></div>
+        <button type="button" class="rm-x" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="rbody">
+      <div class="name-row">
+        <div class="name-line" data-name-line {% if not k.r.name %}hidden{% endif %}>
+          <span class="muted small">Greeting:</span> <strong>Hi <span data-greet>{{ k.r.name|default:"there" }}</span>,</strong>
+          {% if k.guessed %}<span class="badge warn" title="Read from the email address. Check it is right.">guessed from email</span>{% endif %}
+          <button type="button" class="link-btn" data-edit-name>Edit name</button>
+        </div>
+        <div class="field name-field" data-name-field {% if k.r.name %}hidden{% endif %}>
+          <label>Recruiter name</label>
+          <input data-f="name" maxlength="{{ limits.name }}" value="{{ k.r.name }}" placeholder="e.g. Priya Sharma" autocomplete="off">
+          {% if not k.r.name %}<span class="hint">We could not read a name from this address. Add one for a personal greeting, or the email will start “Hi there,”.</span>{% endif %}
+          <span class="field-error" data-error-for="name"></span>
+        </div>
+      </div>
+
+      <div class="section-title">Company</div>
+      <div class="grid grid-2">
+        <div class="field"><label>Company name</label><input data-f="company" maxlength="{{ limits.company }}" value="{{ k.c.company }}" placeholder="e.g. Amazon" autocomplete="off"><span class="field-error" data-error-for="company"></span></div>
+        <div class="field"><label>Their role at the company</label><input data-f="designation" maxlength="{{ limits.designation }}" value="{{ k.c.designation }}" placeholder="e.g. Technical Recruiter" autocomplete="off"><span class="field-error" data-error-for="designation"></span></div>
+      </div>
+
+      <div class="section-title">The job <span class="muted">(optional)</span></div>
+      <div class="grid grid-2">
+        <div class="field"><label>Job title</label><input data-f="job_title" maxlength="{{ limits.job_title }}" value="{{ k.c.job_title }}" placeholder="e.g. Software Development Engineer" autocomplete="off"><span class="field-error" data-error-for="job_title"></span></div>
+        <div class="field"><label>Job posting link <span class="muted">(only for your reference)</span></label><input data-f="job_url" maxlength="{{ limits.job_url }}" value="{{ k.c.job_url }}" placeholder="https://company.com/careers/…" autocomplete="off"><span class="field-error" data-error-for="job_url"></span></div>
+      </div>
+      <div class="field" style="margin-top:1rem">
+        <label>Company research <span class="muted">(optional: what you know about them)</span></label>
+        <textarea data-f="company_notes" rows="4" maxlength="{{ limits.company_notes }}" placeholder="Paste what you know about this company: what it builds, recent news, its values, why you want to work there. The email may use these facts, and nothing else about the company.">{{ k.c.company_notes }}</textarea>
+        <span class="field-error" data-error-for="company_notes"></span>
+      </div>
+      <div class="field" style="margin-top:1rem" data-jd-wrap>
+        <label>Job description</label>
+        <textarea data-f="job_description" rows="7" maxlength="{{ limits.job_description }}" placeholder="Paste the full job description here: responsibilities and requirements. Without it, the AI writes a general introduction instead of claiming an opening.">{{ k.c.job_description }}</textarea>
+        <span class="field-error" data-error-for="job_description"></span>
+      </div>
+      <p class="shared-note" data-shared-note hidden>{% icon 'copy' 14 %} This recipient uses the shared job description above.</p>
+
+      <div class="section-title">Instructions <span class="muted">(optional)</span></div>
+      <div class="field"><input data-f="instructions" maxlength="{{ limits.instructions }}" value="{{ k.c.instructions }}" placeholder="e.g. Keep it under 100 words, friendly tone, mention I can start in July" autocomplete="off"><span class="field-error" data-error-for="instructions"></span></div>
+
+      {% if k.written %}<div class="alert info small" style="margin-top:1rem">An email was already written for this recipient. If you change these details it is marked “details changed”; regenerate it on the review page. It is never replaced automatically.</div>{% endif %}
+      </div>
+      <footer class="rm-foot">
+        <button type="button" class="btn ghost danger sm" data-remove data-url="{% url 'recipient_remove' c.pk k.r.pk %}">{% icon 'trash' 14 %} Remove from campaign</button>
+        <button type="button" class="btn primary" data-close>Done</button>
+      </footer>
+     </div>
+    </dialog>
+  </article>
+  {% endfor %}
+  </div>
+
+  <div class="row between" style="position:sticky;bottom:0;background:var(--bg,#fbf8f1);padding:.8rem 0;border-top:1px solid var(--line)">
+    <span class="small muted" id="save-state">All changes saved.</span>
+    <div class="row">
+      <button type="button" class="btn" id="save-btn">Save progress</button>
+      <button type="button" class="btn primary lg" id="go-btn" {% if not ai_ready %}disabled{% endif %}>{% icon 'sparkles' 16 %} Generate emails {% icon 'arrow' 16 %}</button>
+    </div>
+  </div>
+  {% if not ai_ready %}<p class="small muted" style="text-align:right">AI is switched off or not configured, so emails cannot be generated. Turn it on in <a href="{% url 'settings' %}">Settings</a>, or discard this draft and choose another personalisation mode.</p>{% endif %}
+</form>
+{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/campaign_context.js' %}"></script>{% endblock %}
