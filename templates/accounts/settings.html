@@ -67,7 +67,7 @@
     </section>
     <section class="card">
       <div class="card-head"><h2>AI suggestions</h2>{% if request.user.profile.ai_enabled %}<span class="badge ok dot">on</span>{% else %}<span class="badge dot">off</span>{% endif %}</div>
-      <p class="small">When on, the resume studio can send a resume and a job description to the configured model, but only when you press “Tailor with AI”. Suggestions never invent numbers or skills, and nothing is applied until you accept it.</p>
+      <p class="small">When on, the resume studio can send a resume and a job description to the configured model, but only when you press “Tailor with AI”. Campaigns set to “AI” personalisation also send each recipient's name, company and role, plus your template and resume text, to write one email per recipient. You review every email before sending. Suggestions never invent numbers or skills, and nothing is applied until you accept it.</p>
       <p class="small muted" style="margin:.5rem 0 1rem">Server model: <code>{{ ai_label }}</code></p>
       <form method="post" action="{% url 'ai_toggle' %}">{% csrf_token %}
         {% if request.user.profile.ai_enabled %}

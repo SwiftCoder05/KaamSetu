@@ -1,0 +1,129 @@
+{% extends "app.html" %}
+{% load kaam %}
+{% block title %}Job application email{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="eyebrow">Tech job hunt</div><h1>Job application email</h1>
+    <p>One company, one role. The AI reads the job description, finds your strongest matching experience in the selected resume and writes a draft. Every claim is checked against your resume. Nothing is sent or saved: you review, edit and copy it.</p></div>
+</div>
+
+{% if not ai_configured %}
+  <div class="alert warn" style="margin-bottom:1rem"><div><strong>AI is not configured on this server</strong>Set AI_PROVIDER in .env (see README).</div></div>
+{% elif not ai_enabled %}
+  <div class="alert info" style="margin-bottom:1rem">{% icon 'sparkles' 16 %}<div class="grow"><strong>AI is switched off</strong>Turn it on in Settings to generate emails. Nothing is sent to a model while it is off.</div><a class="btn sm" href="{% url 'settings' %}">Settings</a></div>
+{% endif %}
+{% if not versions %}
+  <div class="empty">
+    <span class="empty-icon tone-green">{% icon 'file' 24 %}</span>
+    <h3>Add a resume first</h3>
+    <p>The email is written only from facts in your resume, so the generator needs one from the resume studio.</p>
+    <a class="btn primary" href="{% url 'resume_list' %}">Open the resume studio</a>
+  </div>
+{% else %}
+<div class="job-layout" id="job-email" data-url="{% url 'job_email_generate' %}">
+  <form class="card stack" id="job-form" novalidate>
+    <h2>{% icon 'file' 16 %} The job</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="company">Company</label>
+        <input id="company" name="company" maxlength="120" required autocomplete="off" placeholder="e.g. Google">
+        <div class="err" data-err="company"></div>
+      </div>
+      <div class="field">
+        <label for="role">Job title</label>
+        <input id="role" name="role" maxlength="160" required autocomplete="off" placeholder="e.g. Software Engineer">
+        <div class="err" data-err="role"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="job_description">Job description</label>
+      <textarea id="job_description" name="job_description" rows="9" maxlength="12000" required placeholder="Paste the full posting: responsibilities and requirements."></textarea>
+      <div class="row between"><div class="err" data-err="job_description"></div><span class="tiny muted" id="jd-count">0 / 12,000</span></div>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="recruiter_name">Recruiter / hiring manager <span class="muted">(optional)</span></label>
+        <input id="recruiter_name" name="recruiter_name" maxlength="120" autocomplete="off" placeholder="Used only for the greeting">
+        <div class="err" data-err="recruiter_name"></div>
+      </div>
+      <div class="field">
+        <label for="recruiter_email">Recruiter email <span class="muted">(optional)</span></label>
+        <input id="recruiter_email" name="recruiter_email" type="email" maxlength="254" autocomplete="off" placeholder="Never sent to the AI">
+        <div class="err" data-err="recruiter_email"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="job_url">Job posting link <span class="muted">(optional, for your reference; not sent to the AI)</span></label>
+      <input id="job_url" name="job_url" type="url" maxlength="500" autocomplete="off" placeholder="https://…">
+      <div class="err" data-err="job_url"></div>
+    </div>
+
+    <h2 style="margin-top:.5rem">{% icon 'users' 16 %} You</h2>
+    <div class="field">
+      <label for="resume_version">Resume version <span class="muted">(the only source of facts about you)</span></label>
+      <select id="resume_version" name="resume_version">
+        {% regroup versions by resume as by_resume %}
+        {% for group in by_resume %}
+          <optgroup label="{{ group.grouper.title }}">
+            {% for v in group.list %}<option value="{{ v.pk }}">{{ v.label }}{% if v.job_title %} · {{ v.job_title }}{% endif %}</option>{% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+      <div class="err" data-err="resume_version"></div>
+    </div>
+    <label class="row small" style="flex-wrap:nowrap"><input type="checkbox" id="resume_attached"> <span>I will attach this resume when I send the email</span></label>
+    <div class="field">
+      <label for="instructions">Extra instructions <span class="muted">(optional; tone, focus or length; cannot add facts about you)</span></label>
+      <input id="instructions" name="instructions" maxlength="1000" autocomplete="off" placeholder="e.g. Focus on the payments work, keep it under 120 words">
+      <div class="err" data-err="instructions"></div>
+    </div>
+
+    <p class="tiny muted">{% icon 'shield' 12 %}
+      {% if ai_external %}Your resume text, the job description, company, role and recruiter name are sent to <code>{{ ai_label }}</code> (external provider).
+      {% else %}Runs on <code>{{ ai_label }}</code> on this server; your data stays here.{% endif %}
+      The recruiter's email and the job link are never sent. One generation uses one of your hourly AI requests and may take a minute on a local model.</p>
+    <div class="row end">
+      <button class="btn primary lg" id="generate-btn" type="submit" {% if not ai_enabled or not ai_configured %}disabled{% endif %}>{% icon 'sparkles' 16 %} Generate personalised email</button>
+    </div>
+  </form>
+
+  <section class="card stack" id="job-result" aria-live="polite">
+    <div id="result-empty" class="muted small">
+      <h2>{% icon 'mail' 16 %} Draft</h2>
+      <p>Your draft appears here with the experience it is based on, the skills you are missing, and the result of the fact check.</p>
+    </div>
+    <div id="result-loading" hidden class="stack" style="--gap:.4rem">
+      <h2>{% icon 'sparkles' 16 %} Writing…</h2>
+      <p class="small muted">Analysing the job, matching it to your resume, writing, reviewing and fact-checking the draft.</p>
+      <div class="progress" aria-hidden="true"><span class="p-ok" style="width:35%;animation:job-pulse 1.4s ease-in-out infinite alternate"></span></div>
+    </div>
+    <div id="result-body" hidden class="stack">
+      <div class="row between"><h2>{% icon 'mail' 16 %} Draft</h2><span class="badge dot" id="status-badge"></span></div>
+      <div id="status-box"></div>
+      <div id="draft" class="stack" style="--gap:.6rem">
+        <div class="field"><label for="out-subject">Subject</label><input id="out-subject" maxlength="300"></div>
+        <div class="field"><label for="out-body">Email</label><textarea id="out-body" rows="14"></textarea></div>
+        <div class="row" style="flex-wrap:wrap">
+          <button type="button" class="btn primary" id="copy-btn">{% icon 'copy' 14 %} Copy email</button>
+          <a class="btn" id="mailto-btn" hidden>{% icon 'mail' 14 %} Open in mail app</a>
+          <button type="button" class="btn" id="regen-btn">{% icon 'refresh' 14 %} Regenerate</button>
+          <button type="button" class="btn ghost" id="edit-input-btn">{% icon 'back' 14 %} Edit the inputs</button>
+        </div>
+        <p class="tiny muted">Nothing has been sent or saved. “Open in mail app” only opens a draft in your own mail client.</p>
+      </div>
+      <details open><summary class="small"><strong>Why this email</strong></summary>
+        <p class="small" id="out-rationale"></p>
+        <div class="small"><strong>Evidence used from your resume</strong></div>
+        <ul class="small" id="out-evidence" style="margin:.3rem 0;padding-left:1.1rem"></ul>
+        <div class="small" style="margin-top:.6rem"><strong>Skills matched</strong> <span class="tiny muted">(shown in your resume)</span></div>
+        <div class="kw-list" id="out-matched"></div>
+        <div class="small"><strong>Not in your resume</strong> <span class="tiny muted">(never claimed in the email)</span></div>
+        <div class="kw-list" id="out-missing"></div>
+      </details>
+      <details><summary class="small"><strong>Quality review</strong></summary><div class="small" id="out-quality"></div></details>
+    </div>
+  </section>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/job_email.js' %}"></script>{% endblock %}

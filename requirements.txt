@@ -10,6 +10,8 @@ olefile>=0.47
 fpdf2>=2.8
 pydantic>=2.9
 httpx>=0.28
+# AI workflow orchestration (job application email graph); uses the existing provider layer for model calls
+langgraph>=1.2,<2
 python-dotenv>=1.0
 dj-database-url>=2.3
 pytesseract>=0.3

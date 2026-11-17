@@ -208,6 +208,12 @@ else:
 OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "600"))  # seconds to wait for a local reply
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+# Campaign personalisation has its own quota (separate from the 12/hour template writer), one unit per generated email.
+AI_CAMPAIGN_PER_HOUR = int(os.environ.get("AI_CAMPAIGN_PER_HOUR", "60"))
+AI_CAMPAIGN_PER_DAY = int(os.environ.get("AI_CAMPAIGN_PER_DAY", "200"))
+AI_CAMPAIGN_MAX_RECIPIENTS = int(os.environ.get("AI_CAMPAIGN_MAX_RECIPIENTS", "50"))
+# How many recipients one campaign may generate at the same time (the browser runs this many workers; the server enforces it).
+AI_CAMPAIGN_CONCURRENCY = int(os.environ.get("AI_CAMPAIGN_CONCURRENCY", "2"))
 
 validate_ai(
     provider=AI_PROVIDER, debug=DEBUG, base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL,

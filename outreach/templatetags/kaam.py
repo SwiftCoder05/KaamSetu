@@ -104,6 +104,10 @@ def status_tone(status: str) -> str:
     return {
         "accepted": "ok", "completed": "ok", "sending": "info", "confirmed": "info", "queued": "muted",
         "draft": "muted", "paused": "warn", "skipped": "muted", "failed": "bad", "cancelled": "muted",
+        # recipient content sources (campaign preview)
+        "ai": "ok", "fallback": "warn", "edited": "info", "pending": "muted", "template": "muted",
+        # generation status (review page)
+        "ready": "ok", "approved": "ok", "generating": "info", "needs_attention": "warn", "none": "muted",
     }.get(status, "muted")
 
 

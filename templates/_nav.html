@@ -4,6 +4,7 @@
   <div class="nav-label">Tech job hunt</div>
   <a href="{% url 'contact_list' %}" class="{% if '/jobs/contacts' in p %}active{% endif %}">{% icon 'users' %} Contacts</a>
   <a href="{% url 'template_gallery' %}" class="{% if '/jobs/templates' in p %}active{% endif %}">{% icon 'mail' %} Templates</a>
+  <a href="{% url 'job_email' %}" class="{% if '/jobs/apply' in p %}active{% endif %}">{% icon 'sparkles' %} Job application email</a>
   <a href="{% url 'campaign_list' %}" class="{% if '/jobs/campaigns' in p %}active{% endif %}">{% icon 'send' %} Campaigns</a>
   <a href="{% url 'resume_list' %}" class="{% if '/resumes' in p %}active{% endif %}">{% icon 'file' %} Resume studio</a>
   <div class="nav-label">Creators</div>
