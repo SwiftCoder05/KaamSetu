@@ -206,6 +206,9 @@ else:
     OLLAMA_CLOUD_URL = os.environ.get("OLLAMA_CLOUD_URL", "https://ollama.com")
     OLLAMA_CLOUD_MODEL = os.environ.get("OLLAMA_CLOUD_MODEL", "")
 OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "600"))  # seconds to wait for a local reply
+# Semantic selection for long job descriptions (resumes/ai/semantic.py). Empty OLLAMA_EMBED_MODEL = TF-IDF only.
+OLLAMA_EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text").strip()
+JD_PROMPT_CHARS = int(os.environ.get("JD_PROMPT_CHARS", "3000"))  # max JD characters sent to the model
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
 # Campaign personalisation has its own quota (separate from the 12/hour template writer), one unit per generated email.
@@ -246,5 +249,14 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
-    "loggers": {"kaamsetu": {"handlers": ["console"], "level": "INFO"}},
+    "loggers": {
+        "kaamsetu": {"handlers": ["console"], "level": "INFO"},
+        # With DEBUG off, Django prints nothing for a 500. This puts the traceback in the host's logs (e.g. Render).
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # App code: logger.exception(...) / logger.warning(...) in these packages now reaches the host's logs.
+        "resumes": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "outreach": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "accounts": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
 }
