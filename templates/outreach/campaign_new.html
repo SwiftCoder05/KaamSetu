@@ -6,14 +6,13 @@
   <div><a class="small" href="{% url 'campaign_list' %}">← Campaigns</a><h1 style="margin-top:.4rem">New campaign</h1><p>Choose who to write to and what to say. You'll see every email before anything is sent.</p></div>
 </div>
 
-{% if not templates or not contacts %}
+{% if not templates %}
   <div class="empty">
     <span class="empty-icon tone-saffron">{% icon 'zap' 24 %}</span>
     <h3>A couple of things first</h3>
-    <p>{% if not templates %}You need an email template. {% endif %}{% if not contacts %}You need at least one contact (that isn't marked do-not-contact).{% endif %}</p>
+    <p>You need an email template.</p>
     <div class="row" style="justify-content:center">
-      {% if not templates %}<a class="btn primary" href="{% url 'template_gallery' %}">Pick a template</a>{% endif %}
-      {% if not contacts %}<a class="btn primary" href="{% url 'contact_import' %}">Add contacts</a>{% endif %}
+      <a class="btn primary" href="{% url 'template_gallery' %}">Pick a template</a>
     </div>
   </div>
 {% else %}
