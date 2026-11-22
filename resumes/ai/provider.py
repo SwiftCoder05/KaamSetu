@@ -1,11 +1,15 @@
 """AI providers. Ollama (local, free, open models) is the default; Gemini is optional; 'none' disables AI."""
 
+import logging
 import re
+import time
 from typing import Protocol
 from urllib.parse import urlparse
 
 import httpx
 from django.conf import settings
+
+log = logging.getLogger("resumes.ai.provider")
 
 
 class AiDisabledError(Exception):
@@ -56,7 +60,8 @@ class OllamaProvider:
             "stream": False,
             "think": False,  # Qwen3 and other thinking models: answer directly, no reasoning text
             "format": schema or "json",
-            "options": {"temperature": 0.3},
+            "keep_alive": "30m",  # stay loaded between runs: a cold start costs ~35 s on CPU
+            "options": {"temperature": 0.3, "num_ctx": 4096},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
         client = self._client or httpx.Client(timeout=httpx.Timeout(self.timeout, connect=5))
@@ -141,35 +146,58 @@ class OllamaCloudProvider:
         return content
 
 
+GEMINI_RETRY_STATUSES = {500, 502, 503, 504}  # Google's transient overload / server errors
+GEMINI_RETRY_DELAYS = (1.0, 3.0)  # seconds before attempt 2 and 3
+
+
 class GeminiProvider:
-    def __init__(self, api_key: str, model: str, client: httpx.Client | None = None):
+    def __init__(self, api_key: str, model: str, client: httpx.Client | None = None, sleep=time.sleep):
         self.api_key = api_key
         self.model = model
         self._client = client
+        self._sleep = sleep
 
     def generate_json(self, system: str, user: str, schema: dict | None = None) -> str:
-        url =f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
         payload = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": user}]}],
             "generationConfig": {"responseMimeType": "application/json", "temperature": 0.3},
         }
-        client = self._client or httpx.Client(timeout=60)
-        try:
-            res = client.post(url, json=payload, headers={"x-goog-api-key": self.api_key})
-        except httpx.HTTPError as e:
-            raise AiUnavailableError() from e
-        finally:
-            if self._client is None:
-                client.close()
+        res = None
+        for attempt in range(len(GEMINI_RETRY_DELAYS) + 1):
+            client = self._client or httpx.Client(timeout=60)
+            try:
+                res = client.post(url, json=payload, headers={"x-goog-api-key": self.api_key})
+            except httpx.HTTPError as e:
+                log.warning("gemini: request failed (attempt %d): %s", attempt + 1, type(e).__name__)
+                res = None
+            finally:
+                if self._client is None:
+                    client.close()
+            if res is not None and res.status_code not in GEMINI_RETRY_STATUSES:
+                break
+            if attempt < len(GEMINI_RETRY_DELAYS):
+                if res is not None:
+                    log.warning("gemini: HTTP %s on attempt %d, retrying in %ss", res.status_code, attempt + 1, GEMINI_RETRY_DELAYS[attempt])
+                self._sleep(GEMINI_RETRY_DELAYS[attempt])
+        if res is None:
+            raise AiUnavailableError("Could not reach Gemini after 3 attempts. Check the server's internet connection and try again.")
+        if res.status_code in GEMINI_RETRY_STATUSES:
+            log.error("gemini: still HTTP %s after 3 attempts; body=%s", res.status_code, res.text[:300])
+            raise AiUnavailableError("Gemini is busy or temporarily unavailable (HTTP %d). Wait a minute and try again; your resume is unchanged." % res.status_code)
         if res.status_code == 429:
+            log.warning("gemini: quota/rate limit (HTTP 429)")
             raise AiQuotaError()
         if res.status_code == 404:
+            log.error("gemini: model %r not found (HTTP 404); body=%s", self.model, res.text[:300])
             raise AiUnavailableError(f'Gemini has no model "{self.model}" available to this key. Check GEMINI_MODEL in your environment variables.')
         if res.status_code in (400, 401, 403):
+            log.error("gemini: rejected request (HTTP %s); body=%s", res.status_code, res.text[:300])
             raise AiUnavailableError("The AI provider rejected the request. Check GEMINI_API_KEY and GEMINI_MODEL on the server.")
         if res.status_code >= 400:
-            raise AiUnavailableError()
+            log.error("gemini: unexpected HTTP %s; body=%s", res.status_code, res.text[:300])
+            raise AiUnavailableError(f"Gemini returned an unexpected error (HTTP {res.status_code}). Check the server logs.")
         try:
             parts = res.json()["candidates"][0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts)
