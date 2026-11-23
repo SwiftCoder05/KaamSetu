@@ -178,7 +178,7 @@ def process_batch(
                             text=text,
                             html=email_document(body_html),
                             attachment=attachment,
-                            request_id=f"rcpt-{r.pk}",  # stable across retries: the email service never sends one recipient twice
+                            request_id=f"rcpt-{r.pk:06d}",  # stable across retries; zero-padded so it always meets the email service's 8-char minimum
                         )
                     )
                 except MailError as err:
