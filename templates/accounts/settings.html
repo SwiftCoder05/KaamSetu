@@ -19,7 +19,7 @@
     {% else %}
       <p class="small muted">Connect your own mailbox so recruiters see your real address. You never enter your normal account password here.</p>
     {% endif %}
-      <form method="post" action="{% url 'mail_connect' %}" class="stack" id="mail-form" data-test-url="{% url 'mail_test' %}" style="margin-top:1rem">{% csrf_token %}
+      <form method="post" action="{% url 'mail_connect' %}" class="stack" id="mail-form" style="margin-top:1rem">{% csrf_token %}
         {{ presets|json_script:"mail-presets" }}
         {% if mail_form.non_field_errors %}<div class="alert bad" role="alert">{{ mail_form.non_field_errors|join:" " }}</div>{% endif %}
         {% for f in mail_form %}
@@ -30,12 +30,10 @@
           </div>
         {% endfor %}
         <div class="alert info small" id="mail-provider-help" role="note"></div>
-        <div id="mail-test-result" class="small" role="status" aria-live="polite"></div>
         <div class="row" style="gap:.6rem">
-          <button type="button" class="btn" id="mail-test-btn">Test Connection</button>
           <button class="btn primary">{% if conn %}Save new credentials{% else %}Verify and connect{% endif %}</button>
         </div>
-        <p class="tiny muted">“Test Connection” signs in to the mail server and sends nothing. Saving runs the same check first and keeps nothing if it fails. Some providers (for example Outlook) only allow it when SMTP sign-in is enabled for the mailbox.</p>
+        <p class="tiny muted">Saving checks the connection first and keeps nothing if it fails. Some providers (for example Outlook) only allow it when SMTP sign-in is enabled for the mailbox.</p>
       </form>
     {% if conn %}</details>{% endif %}
   </section>

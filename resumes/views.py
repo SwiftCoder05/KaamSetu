@@ -51,8 +51,64 @@ def resume_list(request):
 
 @login_required
 def resume_all(request):
-    resumes = Resume.objects.filter(owner=request.user).prefetch_related("versions")
-    return render(request, "resumes/all.html", {"resumes": resumes})
+    all_resumes = list(Resume.objects.filter(owner=request.user).prefetch_related("versions"))
+    categories = sorted({r.category for r in all_resumes if r.category})
+
+    cat = request.GET.get("category", "").strip()
+    resumes = all_resumes
+    if cat == "_none":
+        resumes = [r for r in resumes if not r.category]
+    elif cat:
+        resumes = [r for r in resumes if r.category == cat]
+
+    groups = []
+    if not cat:
+        by_cat = {}
+        for r in resumes:
+            by_cat.setdefault(r.category, []).append(r)
+        for name in sorted(k for k in by_cat if k):
+            groups.append({"name": name, "resumes": by_cat[name]})
+        if by_cat.get(""):
+            groups.append({"name": "Uncategorized", "resumes": by_cat[""]})
+
+    return render(request, "resumes/all.html", {
+        "resumes": resumes, "groups": groups, "categories": categories, "cat": cat,
+        "any_resumes": bool(all_resumes), "total": len(all_resumes),
+    })
+
+
+@login_required
+@require_POST
+def resume_bulk(request):
+    ids = request.POST.getlist("ids")
+    action = request.POST.get("op")
+    qs = Resume.objects.filter(owner=request.user, pk__in=ids)
+    if not ids:
+        messages.info(request, "Select at least one resume first.")
+    elif action == "delete":
+        n = 0
+        for resume in qs:
+            for f in (resume.original_file, resume.preview_pdf):
+                if f:
+                    f.delete(save=False)
+            resume.delete()
+            n += 1
+        messages.success(request, f"Deleted {n} resume(s).")
+    elif action == "category":
+        category = request.POST.get("category", "").strip()[:80]
+        n = qs.update(category=category)
+        messages.success(request, f"Updated {n} resume(s).")
+    return redirect("resume_all")
+
+
+@login_required
+@require_POST
+def resume_set_category(request, pk):
+    resume = get_object_or_404(Resume, pk=pk, owner=request.user)
+    body = _json_body(request)
+    resume.category = str(body.get("category", "")).strip()[:80]
+    resume.save(update_fields=["category"])
+    return JsonResponse({"ok": True, "category": resume.category})
 
 
 @login_required
@@ -66,7 +122,7 @@ def resume_new(request):
         data.basics.name = request.user.profile.full_name[:120]
         data.basics.email = request.user.email[:254]
         v = ResumeVersion.objects.create(resume=resume, label="Version 1", data=data.model_dump(), source=ResumeVersion.Source.BLANK)
-        return redirect(f"{reverse('resume_workspace', args=[resume.pk])}?v={v.pk}")
+        return redirect(f"{reverse('resume_workspace', args=[resume.pk])}?v={v.pk}&edit=1&tab=ai")
 
     raw = upload.read()
     try:
@@ -93,7 +149,7 @@ def resume_new(request):
     # The imported version is locked: it is the untouched source of truth; edits become new versions.
     v = ResumeVersion.objects.create(resume=resume, label="Imported original", data=data.model_dump(), source=ResumeVersion.Source.IMPORT, locked=True)
     messages.info(request, "Imported. Review each section: the import is a best guess from the file's text.")
-    return redirect(f"{reverse('resume_workspace', args=[resume.pk])}?v={v.pk}")
+    return redirect(f"{reverse('resume_workspace', args=[resume.pk])}?v={v.pk}&edit=1")
 
 
 @login_required

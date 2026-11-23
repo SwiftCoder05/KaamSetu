@@ -226,6 +226,7 @@
       const tick = () => (status.textContent = `Writing… ${Math.round((Date.now() - started) / 1000)}s`);
       tick();
       const timer = setInterval(tick, 1000);
+      const wait = window.kaamWait?.start(document.getElementById("ai-wait"), "email");
       const { ok, data } = await window.kaam.post(ai.dataset.url, {
         confirm: true,
         mode: btn.dataset.aiMode,
@@ -236,6 +237,7 @@
         body: editor.innerHTML,
       });
       clearInterval(timer);
+      wait?.stop();
       aiButtons.forEach((b) => (b.disabled = false));
       if (!ok) {
         status.textContent = data.error;

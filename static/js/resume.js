@@ -7,7 +7,7 @@ document.addEventListener("alpine:init", () => {
     label: cfg.label,
     dirty: false,
     saving: false,
-    tab: "edit",
+    tab: new URLSearchParams(location.search).get("tab") === "ai" ? "ai" : "edit",
     ai: { jd: "", instructions: "", job_title: "", company: "", busy: false, applying: false, error: "", result: null, elapsed: 0,
           live: { score: 0, pages: 1, matched: [] } },
 

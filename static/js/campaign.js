@@ -177,7 +177,12 @@
       resumeBtn.hidden = true;
       errBox.hidden = true;
       title.textContent = "Writing personalised emails…";
+      const waitBox = document.getElementById("ai-wait");
+      let wait = null;
+      if (waitBox && window.kaamWait) { waitBox.hidden = false; wait = window.kaamWait.start(waitBox, "email"); }
       await Promise.all(Array.from({ length: workers }, worker));
+      wait?.stop();
+      if (waitBox) waitBox.hidden = true;
       if (stopped) return;
       title.textContent = "AI personalisation finished";
       document.getElementById("ai-progress").hidden = true;

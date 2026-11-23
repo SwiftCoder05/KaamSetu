@@ -2,7 +2,6 @@ from django.urls import path
 
 from . import views_campaigns as camp
 from . import views_contacts as con
-from . import views_job_email as job
 from . import views_templates as tpl
 
 urlpatterns = [
@@ -20,8 +19,6 @@ urlpatterns = [
     path("templates/<int:pk>/ai/", tpl.template_ai, name="template_ai"),
     path("templates/<int:pk>/duplicate/", tpl.template_duplicate, name="template_duplicate"),
     path("templates/<int:pk>/delete/", tpl.template_delete, name="template_delete"),
-    path("apply/", job.job_email, name="job_email"),
-    path("apply/generate/", job.job_email_generate, name="job_email_generate"),
     path("campaigns/", camp.campaign_list, name="campaign_list"),
     path("campaigns/new/", camp.campaign_new, name="campaign_new"),
     path("campaigns/<int:pk>/", camp.campaign_detail, name="campaign_detail"),

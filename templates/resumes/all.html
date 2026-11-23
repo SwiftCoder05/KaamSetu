@@ -3,19 +3,60 @@
 {% block title %}All resumes{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><a class="small" href="{% url 'resume_list' %}">{% icon 'back' 12 %} Resume studio</a><h1 style="margin-top:.4rem">All resumes</h1><p>{{ resumes|length }} saved. Open one to edit it, tailor it to a job or download it.</p></div>
+  <div><a class="small" href="{% url 'resume_list' %}">{% icon 'back' 12 %} Resume Build</a><h1 style="margin-top:.4rem">All resumes</h1><p>{{ total }} saved. Open one to edit it, tailor it to a job or download it.</p></div>
   <a class="btn primary" href="{% url 'resume_list' %}">{% icon 'plus' 15 %} New resume</a>
 </div>
+
+{% if any_resumes %}
 {% if resumes %}
-<div class="grid grid-3">
-  {% for r in resumes %}
-  <a class="card card-link stack" style="--gap:.5rem" href="{% url 'resume_workspace' r.pk %}">
-    <div class="row between"><h3>{{ r.title }}</h3>{% icon 'arrow' 16 %}</div>
-    <div class="small muted">{{ r.versions.count }} version{{ r.versions.count|pluralize }} · updated {{ r.updated_at|timesince }} ago</div>
-    {% if r.original_name %}<div class="tiny muted">{% icon 'lock' 12 %} Original: {{ r.original_name }}</div>{% endif %}
-  </a>
-  {% endfor %}
+<div class="row between" style="margin-bottom:1rem;gap:.5rem">
+  {% if categories %}
+  <div class="row" style="gap:.5rem">
+    <a class="filter-pill {% if not cat %}on{% endif %}" href="{% url 'resume_all' %}">All categories</a>
+    {% for c in categories %}
+    <a class="filter-pill {% if cat == c %}on{% endif %}" href="?category={{ c|urlencode }}">{{ c }}</a>
+    {% endfor %}
+    <a class="filter-pill {% if cat == '_none' %}on{% endif %}" href="?category=_none">Uncategorized</a>
+  </div>
+  {% endif %}
+  <button type="button" class="btn sm" data-toggle-select="bulk">Select</button>
 </div>
+{% endif %}
+
+<datalist id="resume-categories">
+  {% for c in categories %}<option value="{{ c }}">{% endfor %}
+</datalist>
+
+<form method="post" action="{% url 'resume_bulk' %}" id="bulk">{% csrf_token %}
+  <div class="bulk-bar" data-bulk-bar="ids" hidden>
+    <strong><span data-bulk-count>0</span> selected</strong>
+    <button type="submit" name="op" value="delete" class="btn sm danger" onclick="return confirm('Delete the selected resumes, their versions and original files?')">{% icon 'trash' 14 %} Delete</button>
+    <input type="text" name="category" list="resume-categories" placeholder="Category (existing or new)" maxlength="80" style="width:auto" aria-label="Category to move selected resumes into">
+    <button type="submit" name="op" value="category" class="btn sm" onclick="if(!this.form.category.value.trim()){alert('Enter a category name.');return false;}">Move to category</button>
+  </div>
+
+  {% if resumes %}
+  <label class="row small muted select-check" style="gap:.5rem;margin-bottom:.75rem"><input type="checkbox" data-select-all="ids" aria-label="Select all"> Select all</label>
+
+  {% if groups %}
+    {% for group in groups %}
+    <h3 class="small" style="margin:1.25rem 0 .5rem">{{ group.name }} <span class="muted">({{ group.resumes|length }})</span></h3>
+    <div class="grid grid-3">
+      {% for r in group.resumes %}{% include "resumes/_resume_card.html" with r=r %}{% endfor %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="grid grid-3">
+      {% for r in resumes %}{% include "resumes/_resume_card.html" with r=r %}{% endfor %}
+    </div>
+  {% endif %}
+  {% else %}
+  <div class="empty">
+    <h3>No resumes match</h3>
+    <p>Try a different category filter.</p>
+  </div>
+  {% endif %}
+</form>
 {% else %}
 <div class="empty">
   <h3>No resumes yet</h3>

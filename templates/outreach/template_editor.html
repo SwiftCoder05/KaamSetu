@@ -112,6 +112,7 @@
         <button type="button" class="btn sm" data-ai-mode="shorten">Shorten</button>
       </div>
       <div id="ai-status" class="small muted" hidden></div>
+      <div id="ai-wait"></div>
       <div id="ai-result" class="stack" style="--gap:.45rem" hidden>
         <div id="ai-issues" class="alert small" hidden></div>
         <div id="ai-subject" style="font-weight:600"></div>
@@ -132,4 +133,4 @@
   </button>
 </div>
 {% endblock %}
-{% block scripts %}<script src="{% vstatic 'js/editor.js' %}"></script>{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/wait_panel.js' %}"></script><script src="{% vstatic 'js/editor.js' %}"></script>{% endblock %}

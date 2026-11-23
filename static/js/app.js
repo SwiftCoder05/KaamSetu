@@ -71,6 +71,36 @@
     update();
   });
 
+  // <div data-category-editor="/save/url"><input><button></div>: saves a category tag via fetch,
+  // so it can sit inside a page-wide bulk-select <form> without nesting <form> inside <form>.
+  document.querySelectorAll("[data-category-editor]").forEach((box) => {
+    const url = box.dataset.categoryEditor;
+    const input = box.querySelector("input");
+    const btn = box.querySelector("button");
+    const save = async () => {
+      const { ok, data } = await window.kaam.post(url, { category: input.value.trim() });
+      window.kaam.toast(ok ? "Category updated." : data.error || "Could not update category.", ok ? "" : "bad");
+    };
+    btn.addEventListener("click", save);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
+  });
+
+  // <button data-toggle-select="name"> shows/hides every [data-select-all="name"]'s checkboxes
+  // (each wrapped in .select-check) so they're out of the way until the user asks to pick resumes.
+  document.querySelectorAll("[data-toggle-select]").forEach((toggle) => {
+    const name = toggle.dataset.toggleSelect;
+    const scope = document.getElementById(name);
+    if (!scope) return;
+    const setOn = (on) => {
+      scope.classList.toggle("selecting", on);
+      toggle.textContent = on ? "Cancel" : "Select";
+      if (!on) {
+        scope.querySelectorAll(`input[type=checkbox][name="ids"]`).forEach((cb) => { cb.checked = false; cb.dispatchEvent(new Event("change", { bubbles: true })); });
+      }
+    };
+    toggle.addEventListener("click", () => setOn(!scope.classList.contains("selecting")));
+  });
+
   // Numbers on stat cards count up once when the page opens.
   if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     document.querySelectorAll("[data-count]").forEach((el) => {
@@ -86,6 +116,51 @@
       requestAnimationFrame(step);
     });
   }
+
+  // Password visibility toggle: wrap any bare password input (e.g. plain Django widgets) with
+  // the same eye button markup the allauth field template renders, then wire up every toggle.
+  document.querySelectorAll('input[type="password"]').forEach((input) => {
+    if (input.closest(".password-field")) return; // already has a toggle
+    const wrap = document.createElement("div");
+    wrap.className = "password-field";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "eye-btn password-toggle";
+    btn.setAttribute("data-password-toggle", "");
+    btn.setAttribute("aria-label", "Show password");
+    btn.setAttribute("aria-pressed", "false");
+    btn.innerHTML =
+      '<svg class="pw-eye-open" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
+      '<svg class="pw-eye-closed" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-10-7-10-7a18.6 18.6 0 0 1 4.22-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+    wrap.appendChild(btn);
+  });
+  document.querySelectorAll("[data-password-toggle]").forEach((btn) => {
+    const input = btn.closest(".password-field")?.querySelector("input");
+    if (!input) return;
+    btn.addEventListener("click", () => {
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.querySelector(".pw-eye-open").hidden = show;
+      btn.querySelector(".pw-eye-closed").hidden = !show;
+      btn.setAttribute("aria-pressed", String(show));
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    });
+  });
+
+  // "Rewrite password" fields: flag a mismatch against the original password as soon as it
+  // differs by even one character, instead of waiting for submit.
+  document.querySelectorAll("[data-password-confirm]").forEach((wrap) => {
+    const confirmInput = wrap.querySelector("input");
+    const form = wrap.closest("form");
+    const targetInput = form?.querySelector(`[name="${wrap.dataset.passwordConfirm}"]`);
+    const msg = wrap.parentElement.querySelector("[data-password-mismatch]");
+    if (!confirmInput || !targetInput || !msg) return;
+    const check = () => { msg.hidden = !confirmInput.value || confirmInput.value === targetInput.value; };
+    confirmInput.addEventListener("input", check);
+    targetInput.addEventListener("input", check);
+  });
 
   // Floating AI helper: the robot offers help; the panel opens only on click, over a blurred backdrop.
   document.querySelectorAll("[data-ai-dock]").forEach((dock) => {

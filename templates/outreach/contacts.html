@@ -1,9 +1,9 @@
 {% extends "app.html" %}
 {% load kaam %}
-{% block title %}Contacts{% endblock %}
+{% block title %}Email list{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow">{{ request.user.profile.sender_name }}'s job hunt</div><h1>Contacts</h1><p>Recruiters and hiring managers you plan to reach. {{ total }} saved.</p></div>
+  <div><div class="eyebrow">{{ request.user.profile.sender_name }}'s job hunt</div><h1>Email list</h1><p>Recruiters and hiring managers you plan to reach. {{ total }} saved.</p></div>
   <a class="btn primary" href="{% url 'contact_import' %}">{% icon 'plus' 16 %} Add contacts</a>
 </div>
 

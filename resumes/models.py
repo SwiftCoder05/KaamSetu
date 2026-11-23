@@ -20,6 +20,9 @@ def original_upload_to(instance, filename):
 class Resume(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="resumes")
     title = models.CharField(max_length=160)
+    # Free-text grouping the user sets themselves (e.g. "Software Engineer", "Marketing") so a
+    # growing list of saved resumes stays easy to scan and search.
+    category = models.CharField(max_length=80, blank=True)
     # The uploaded file is kept byte-for-byte, so the user can always get their original back.
     original_file = models.FileField(upload_to=original_upload_to, storage=private_storage, blank=True)
     original_name = models.CharField(max_length=255, blank=True)

@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <a class="small" href="{% url 'campaign_list' %}">← Campaigns</a>
+    <a class="small" href="{% url 'campaign_list' %}">← Send Email</a>
     <h1 style="margin-top:.4rem">{{ c.name }}</h1>
     <p>{{ counts.total }} recipient{{ counts.total|pluralize }} · from {{ c.sender_name }}{% if conn %} &lt;{{ conn.email }}&gt;{% endif %} · {% if c.resume_version %}{% icon 'file' 14 %} {{ c.resume_version.resume.title }} — {{ c.resume_version.label }}{% elif attachment %}{% icon 'file' 14 %} {{ attachment.filename }}{% else %}no attachment{% endif %}</p>
   </div>
@@ -17,6 +17,7 @@
     <div class="alert warn" style="margin-bottom:1rem">{% icon 'mail' %}<div class="grow"><strong>Connect your email to send</strong>Your draft is saved. Connect your own email account in Settings, then come back here.</div><a class="btn sm" href="{% url 'settings' %}">Connect</a></div>
   {% endif %}
   {% if is_ai %}
+    <div class="card" id="ai-wait" hidden style="margin-bottom:1rem"></div>
     <div class="alert {% if ai_external %}warn{% else %}info{% endif %}" id="ai-box" style="margin-bottom:1rem"
          data-url="{% url 'campaign_personalise' c.pk %}" data-pending="{{ pending }}" data-total="{{ counts.total }}" data-concurrency="{{ concurrency }}" data-ai-enabled="{% if ai_enabled %}1{% endif %}">
       {% icon 'sparkles' 16 %}
@@ -145,4 +146,4 @@
   </div>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{% vstatic 'js/campaign.js' %}"></script>{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/wait_panel.js' %}"></script><script src="{% vstatic 'js/campaign.js' %}"></script>{% endblock %}

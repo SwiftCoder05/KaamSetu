@@ -285,7 +285,7 @@ def extract_document_text(kind: str, data: bytes) -> str:
 # ── entry point ────────────────────────────────────────────────────────────
 
 
-def extract_contacts_from_file(filename: str, data: bytes, existing=()) -> ExtractedFile:
+def extract_contacts_from_file(filename: str, data: bytes, existing=(), self_email: str = "") -> ExtractedFile:
     if not data:
         raise FileExtractError("empty", "The file is empty.")
     if len(data) > settings.MAX_UPLOAD_BYTES:
@@ -301,4 +301,4 @@ def extract_contacts_from_file(filename: str, data: bytes, existing=()) -> Extra
             warnings.append("OCR can misread characters. Check every address before importing.")
     if not drafts:
         raise FileExtractError("no_emails", "No email addresses were found in this file.")
-    return ExtractedFile(kind, finalize_drafts(drafts, existing), warnings)
+    return ExtractedFile(kind, finalize_drafts(drafts, existing, self_email), warnings)

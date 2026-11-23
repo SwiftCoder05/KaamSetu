@@ -29,6 +29,8 @@ class ContactForm(forms.ModelForm):
         email = self.cleaned_data["email"].strip().lower()
         if not is_valid_email(email):
             raise forms.ValidationError("Not a valid email address.")
+        if self.owner and email == self.owner.email.strip().lower():
+            raise forms.ValidationError("That's your own email address — you can't add yourself as a contact.")
         if Contact.objects.filter(owner=self.owner, email=email).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("You already have a contact with this email.")
         return email
@@ -101,11 +103,11 @@ def contact_import(request):
     try:
         if upload:
             source = upload.name
-            result = extract_contacts_from_file(upload.name, upload.read(), existing)
+            result = extract_contacts_from_file(upload.name, upload.read(), existing, request.user.email)
             drafts, warnings = result.drafts, result.warnings
         elif pasted.strip():
             source = "pasted text"
-            drafts = parse_manual_input(pasted[:200_000], existing)
+            drafts = parse_manual_input(pasted[:200_000], existing, request.user.email)
         else:
             messages.error(request, "Paste some email addresses or choose a file.")
             return render(request, "outreach/contact_import.html", {"pasted": pasted})
@@ -146,7 +148,7 @@ def contact_import_confirm(request):
             )
         )
     existing = Contact.objects.filter(owner=request.user).values_list("email", flat=True)
-    final = [d for d in finalize_drafts(picked, existing) if d.status == "valid"]
+    final = [d for d in finalize_drafts(picked, existing, request.user.email) if d.status == "valid"]
     Contact.objects.bulk_create(
         [Contact(owner=request.user, email=d.email, name=d.name, company=d.company, role_title=d.role_title) for d in final],
         ignore_conflicts=True,

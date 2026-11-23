@@ -1,4 +1,4 @@
-// Settings > Email sending: provider presets and the Test Connection button.
+// Settings > Email sending: provider presets.
 // The server re-validates everything (host, port, security); this only makes the form pleasant.
 (function () {
   const form = document.getElementById("mail-form");
@@ -12,8 +12,6 @@
   const passLabel = row("password").querySelector("label");
   const passHelp = document.getElementById("mail-pass-help");
   const help = document.getElementById("mail-provider-help");
-  const result = document.getElementById("mail-test-result");
-  const testBtn = document.getElementById("mail-test-btn");
 
   function apply() {
     const p = presets[provider.value];
@@ -28,33 +26,10 @@
     port.readOnly = true;
     passLabel.textContent = p.password_label;
     if (passHelp) passHelp.textContent = "Stored encrypted and never shown again.";
-    help.textContent = p.help;
-    result.textContent = "";
+    help.innerHTML = p.help; // static, server-defined text with our own links — not user input
   }
 
   provider.addEventListener("change", apply);
   security.addEventListener("change", () => { port.value = PORT[security.value]; });
   apply();
-
-  testBtn.addEventListener("click", async () => {
-    result.style.color = "var(--muted)";
-    result.textContent = "Testing the connection… this can take up to 30 seconds.";
-    testBtn.disabled = true;
-    try {
-      const res = await fetch(form.dataset.testUrl, {
-        method: "POST",
-        body: new FormData(form),
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-        credentials: "same-origin",
-      });
-      const data = await res.json().catch(() => ({ ok: false, message: "Unexpected response. Try again." }));
-      result.style.color = data.ok ? "var(--ok)" : "var(--bad)";
-      result.textContent = (data.ok ? "✓ " : "✗ ") + data.message;
-    } catch (e) {
-      result.style.color = "var(--bad)";
-      result.textContent = "✗ Could not reach the server. Check your connection and try again.";
-    } finally {
-      testBtn.disabled = false;
-    }
-  });
 })();

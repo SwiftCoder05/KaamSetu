@@ -42,7 +42,7 @@ class MailConnectForm(forms.Form):
     password = forms.CharField(
         label="App password",
         max_length=256,
-        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "data-password-toggle-field": "1"}),
         help_text="An app password or provider-issued SMTP password. It is stored encrypted and never shown again.",
     )
 

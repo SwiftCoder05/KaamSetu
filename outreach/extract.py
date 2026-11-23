@@ -52,9 +52,11 @@ def _clean_token(token: str) -> str:
     return token.strip(_EDGES)
 
 
-def finalize_drafts(drafts: list[ContactDraft], existing: Iterable[str] = ()) -> list[ContactDraft]:
-    """Marks duplicates (case-insensitive), keeping input order. The first occurrence stays valid."""
+def finalize_drafts(drafts: list[ContactDraft], existing: Iterable[str] = (), self_email: str = "") -> list[ContactDraft]:
+    """Marks duplicates (case-insensitive), keeping input order. The first occurrence stays valid.
+    Your own email address is rejected outright — you can't add yourself as a contact."""
     already = {normalize_email(e) for e in existing}
+    own = normalize_email(self_email) if self_email else ""
     seen: set[str] = set()
     out = []
     for d in drafts:
@@ -62,7 +64,9 @@ def finalize_drafts(drafts: list[ContactDraft], existing: Iterable[str] = ()) ->
             out.append(d)
             continue
         key = normalize_email(d.email)
-        if key in already:
+        if own and key == own:
+            out.append(ContactDraft(key, d.name, d.company, d.role_title, "invalid", "That's your own email address."))
+        elif key in already:
             out.append(ContactDraft(key, d.name, d.company, d.role_title, "duplicate", "Already in your contacts"))
         elif key in seen:
             out.append(ContactDraft(key, d.name, d.company, d.role_title, "duplicate", "Duplicate in this list"))
@@ -79,7 +83,7 @@ def _judge(email: str, name: str = "") -> ContactDraft:
     return ContactDraft(email, status="invalid", reason=reason)
 
 
-def parse_manual_input(text: str, existing: Iterable[str] = ()) -> list[ContactDraft]:
+def parse_manual_input(text: str, existing: Iterable[str] = (), self_email: str = "") -> list[ContactDraft]:
     """Comma, semicolon, space and newline separated. Every token is judged, so malformed entries are
     reported rather than silently dropped. Understands `Jane Doe <jane@acme.com>` and `mailto:`."""
     drafts: list[ContactDraft] = []
@@ -92,16 +96,16 @@ def parse_manual_input(text: str, existing: Iterable[str] = ()) -> list[ContactD
             email = _clean_token(raw)
             if email:
                 drafts.append(_judge(email))
-    return finalize_drafts(drafts, existing)
+    return finalize_drafts(drafts, existing, self_email)
 
 
-def extract_emails_from_text(text: str, existing: Iterable[str] = ()) -> list[ContactDraft]:
+def extract_emails_from_text(text: str, existing: Iterable[str] = (), self_email: str = "") -> list[ContactDraft]:
     """Scans arbitrary document text for things that look like emails."""
     drafts = []
     for m in _FREE_TEXT.findall(text):
         email = _clean_token(m)
         drafts.append(ContactDraft(email) if is_valid_email(email) else ContactDraft(email, status="invalid", reason="Not a valid email address"))
-    return finalize_drafts(drafts, existing)
+    return finalize_drafts(drafts, existing, self_email)
 
 
 def summarize(drafts: list[ContactDraft]) -> dict:

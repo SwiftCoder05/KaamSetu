@@ -15,19 +15,28 @@ PRESETS = {
     "gmail": {
         "label": "Gmail", "host": "smtp.gmail.com", "securities": ["ssl", "starttls"], "security": "ssl",
         "password_label": "Google App Password",
-        "help": "Needs 2-Step Verification. Create an App Password at myaccount.google.com/apppasswords (16 letters). "
-                "Your normal Google password will not work.",
+        "help": "Your normal Google password will not work here &mdash; you need a 16-letter App Password instead:"
+                "<ol><li>Turn on 2-Step Verification on your Google account, if it isn't already.</li>"
+                "<li>Go to <a href=\"https://myaccount.google.com/apppasswords\" target=\"_blank\" rel=\"noopener\">"
+                "myaccount.google.com/apppasswords</a>.</li>"
+                "<li>Name it anything (e.g. \"KaamSetu\") and click Create.</li>"
+                "<li>Copy the 16-letter password Google shows you and paste it below.</li></ol>",
     },
     "outlook": {
         "label": "Outlook / Microsoft 365", "host": "smtp.office365.com", "securities": ["starttls"], "security": "starttls",
         "password_label": "Password or app password",
-        "help": "Works only if SMTP AUTH is enabled for your mailbox. Many personal and work accounts have it switched off "
-                "(your admin can enable it). With two-step verification, create an app password in your Microsoft account.",
+        "help": "Works only if SMTP AUTH is enabled for your mailbox &mdash; many personal and work accounts have it switched "
+                "off (your admin can turn it on). If you use two-step verification, create an app password in your "
+                "<a href=\"https://account.microsoft.com/security\" target=\"_blank\" rel=\"noopener\">Microsoft account security settings</a> "
+                "and use that instead of your normal password.",
     },
     "yahoo": {
         "label": "Yahoo Mail", "host": "smtp.mail.yahoo.com", "securities": ["ssl", "starttls"], "security": "ssl",
         "password_label": "Yahoo App Password",
-        "help": "Create an app password under Account security > Generate app password. Your normal password will not work.",
+        "help": "Your normal Yahoo password will not work here &mdash; you need an app password instead:"
+                "<ol><li>Go to <a href=\"https://login.yahoo.com/account/security\" target=\"_blank\" rel=\"noopener\">"
+                "Yahoo Account security</a>.</li><li>Open \"Generate app password\".</li>"
+                "<li>Copy the password Yahoo shows you and paste it below.</li></ol>",
     },
     "custom": {
         "label": "Custom SMTP", "host": "", "securities": ["ssl", "starttls"], "security": "starttls",
