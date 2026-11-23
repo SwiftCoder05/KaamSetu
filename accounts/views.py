@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from allauth.account.models import EmailAddress
 from allauth.mfa.utils import is_mfa_enabled
 from django.conf import settings
@@ -23,6 +25,7 @@ from resumes.ai.provider import provider_label
 from resumes.models import Resume
 
 from .forms import MailConnectForm, ProfileForm
+from .models import Profile
 
 
 WALKTHROUGH_STEPS = [
@@ -41,14 +44,29 @@ WALKTHROUGH_STEPS = [
 ]
 
 
+LIVE_WINDOW = timedelta(minutes=5)
+
+
+def live_stats() -> dict:
+    stats = cache.get("live_stats")
+    if stats is None:
+        stats = {
+            "users": get_user_model().objects.filter(is_active=True).count(),
+            "online": Profile.objects.filter(last_seen__gte=timezone.now() - LIVE_WINDOW).count(),
+        }
+        cache.set("live_stats", stats, 10)
+    return stats
+
+
+def live_users(request):
+    return JsonResponse(live_stats())
+
+
 def landing(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
-    user_count = cache.get("landing_user_count")
-    if user_count is None:
-        user_count = get_user_model().objects.filter(is_active=True).count()
-        cache.set("landing_user_count", user_count, 300)
-    return render(request, "landing.html", {"walkthrough": WALKTHROUGH_STEPS, "user_count": user_count})
+    stats = live_stats()
+    return render(request, "landing.html", {"walkthrough": WALKTHROUGH_STEPS, "user_count": stats["users"], "live_count": stats["online"]})
 
 
 @login_required

@@ -24,13 +24,11 @@
     <div class="lp-hero-copy">
       <h1>Turn every recruiter email into a <span class="lp-mark">conversation</span>.</h1>
       <p class="lp-lede">One honest platform for your job hunt. Import recruiter contacts, write warm templates, tailor your resume to each job with careful AI, and send from your own Gmail with clear limits and a real status for every message.</p>
-      <div class="lp-cta">
-        <a class="lp-btn dark lg" href="{% url 'account_signup' %}">Sign up free</a>
-        <a class="lp-btn ghost lg" href="#how-it-works">See how it works</a>
-      </div>
       <div class="lp-proof">
-        <span class="lp-live"></span>
-        {% if user_count %}<span><strong>{{ user_count }}</strong> job seeker{{ user_count|pluralize }} already use{{ user_count|pluralize:"s," }} KaamSetu</span>{% else %}<span>Free to start. No card needed.</span>{% endif %}
+        <span class="lp-online" id="live-online" data-url="{% url 'live_users' %}" {% if not live_count %}hidden{% endif %} aria-live="polite"><span class="lp-live"></span><strong id="live-count">{{ live_count }}</strong> <span id="live-label">online now</span></span>
+        <span class="lp-live" id="live-dot-fallback" {% if live_count %}hidden{% endif %}></span>
+        <span id="live-users-line" {% if not user_count %}hidden{% endif %}><strong id="live-users">{{ user_count }}</strong> <span id="live-users-label">job seeker{{ user_count|pluralize }} already use{{ user_count|pluralize:"s," }} KaamSetu</span></span>
+        <span id="live-users-empty" {% if user_count %}hidden{% endif %}>Free to start. No card needed.</span>
       </div>
     </div>
 
@@ -164,6 +162,28 @@
 {% endblock %}
 {% block scripts %}<script src="{% vstatic 'js/walkthrough.js' %}"></script>
 <script>
+(function () {
+  var box = document.getElementById('live-online'); if (!box) return;
+  var n = document.getElementById('live-count'), dot = document.getElementById('live-dot-fallback');
+  var uLine = document.getElementById('live-users-line'), uEmpty = document.getElementById('live-users-empty');
+  var uNum = document.getElementById('live-users'), uLabel = document.getElementById('live-users-label');
+  function bump(el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  function poll() {
+    if (document.hidden) return;
+    fetch(box.dataset.url, { headers: { Accept: 'application/json' } }).then(function (r) { return r.json(); }).then(function (d) {
+      box.hidden = !d.online; dot.hidden = !!d.online;
+      if (String(d.online) !== n.textContent) { n.textContent = d.online; bump(box); }
+      uLine.hidden = !d.users; uEmpty.hidden = !!d.users;
+      if (String(d.users) !== uNum.textContent) {
+        uNum.textContent = d.users;
+        uLabel.textContent = 'job seeker' + (d.users === 1 ? '' : 's') + ' already use' + (d.users === 1 ? 's' : '') + ' KaamSetu';
+        bump(uNum);
+      }
+    }).catch(function () {});
+  }
+  setInterval(poll, 15000);
+  document.addEventListener('visibilitychange', poll);
+})();
 (function () {
   var els = document.querySelectorAll('.reveal');
   if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) { els.forEach(function (e) { e.classList.add('in'); }); return; }

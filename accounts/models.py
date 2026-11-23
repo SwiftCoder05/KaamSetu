@@ -17,6 +17,8 @@ class Profile(models.Model):
     )
     # AI is off until the user switches it on; tailoring also needs an explicit button press each time.
     ai_enabled = models.BooleanField(default=False)
+    # Updated at most once a minute by PresenceMiddleware; powers the landing page's live-user count.
+    last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
 
     def __str__(self):
         return self.full_name or self.user.get_username()

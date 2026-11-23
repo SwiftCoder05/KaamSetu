@@ -37,6 +37,13 @@ body.lp { background: var(--paper); font-family: var(--font-sans); }
 .lp-proof { display: flex; align-items: center; gap: .6rem; margin-top: 1.8rem; color: #3a342b; }
 .lp-proof strong { color: var(--ink); }
 .lp-live { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 rgb(37 104 63 / .5); animation: lp-pulse 2s infinite; }
+.lp-online { display: inline-flex; align-items: center; gap: .45rem; background: var(--ok-soft, #dff0e3); color: var(--ok, #25683f); border: 1px solid #b9dcc3; border-radius: 999px; padding: .25rem .8rem .25rem .65rem; font-weight: 600; font-size: .9rem; }
+.lp-online[hidden], .lp-live[hidden] { display: none; }
+.lp-online strong { color: var(--ok, #25683f); font-variant-numeric: tabular-nums; }
+.lp-proof strong.bump { display: inline-block; animation: lp-bump .5s ease-out; }
+.lp-online.bump { animation: lp-bump .5s ease-out; }
+@keyframes lp-bump { 40% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .lp-online.bump { animation: none; } }
 @keyframes lp-pulse { 70% { box-shadow: 0 0 0 9px rgb(37 104 63 / 0); } 100% { box-shadow: 0 0 0 0 rgb(37 104 63 / 0); } }
 
 /* product cards */
@@ -128,3 +135,10 @@ body.lp { background: var(--paper); font-family: var(--font-sans); }
 .lp-final h2 { color: #fff; font-size: clamp(2rem, 4.5vw, 3.2rem); }
 .lp-final p { margin: 1rem auto 2rem; color: #dfe3f7; font-size: 1.12rem; max-width: 46ch; }
 .lp-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1.5rem clamp(1rem, 5vw, 4rem) 2.5rem; color: var(--muted); }
+
+/* social proof under the hero buttons */
+.lp-proof { flex-wrap: wrap; gap: .4rem .8rem; }
+.lp-proof .lp-online { background: var(--ok); color: #fff; border-color: var(--ok); padding: .3rem .9rem .3rem .75rem; font-size: 1rem; box-shadow: 0 6px 14px -6px rgb(37 104 63 / .6); }
+.lp-proof .lp-online strong { color: #fff; font-size: 1.15rem; }
+.lp-proof .lp-online .lp-live { background: #7dffa9; box-shadow: 0 0 0 0 rgb(125 255 169 / .7); }
+.lp-proof #live-users { font-size: 1.3rem; font-weight: 800; color: var(--ink); background: linear-gradient(transparent 60%, var(--saffron-soft) 60%); padding: 0 .15rem; }
