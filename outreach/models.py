@@ -56,18 +56,39 @@ class EmailTemplate(models.Model):
 
 
 class MailConnection(models.Model):
+    """One user's own outgoing mail account. The password is stored encrypted (AES-256-GCM) and never shown again."""
+
+    class Security(models.TextChoices):
+        SSL = "ssl", "SSL/TLS (port 465)"
+        STARTTLS = "starttls", "STARTTLS (port 587)"
+
     owner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mail_connection")
-    provider = models.CharField(max_length=20, default="gmail_smtp")
+    provider = models.CharField(max_length=20, default="gmail")  # gmail | outlook | yahoo | custom
     email = models.EmailField()
-    secret_enc = models.TextField(help_text="Encrypted app password. Never shown again after saving.")
+    smtp_host = models.CharField(max_length=253, default="smtp.gmail.com")
+    smtp_port = models.PositiveIntegerField(default=465)
+    security = models.CharField(max_length=8, choices=Security.choices, default=Security.SSL)
+    smtp_username = models.CharField(max_length=254, blank=True, help_text="Blank means the email address.")
+    secret_enc = models.TextField(help_text="Encrypted SMTP password. Never shown again after saving.")
     verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def username(self) -> str:
+        return self.smtp_username or self.email
+
+    @property
+    def provider_label(self) -> str:
+        return {"gmail": "Gmail", "outlook": "Outlook", "yahoo": "Yahoo", "custom": "Custom SMTP"}.get(self.provider, self.provider)
+
+    def _aad(self) -> str:
+        return f"mailconn:{self.owner_id}"  # ties the ciphertext to its owner
+
     def set_secret(self, plain: str):
-        self.secret_enc = crypto.encrypt(plain)
+        self.secret_enc = crypto.encrypt_secret(plain, self._aad())
 
     def get_secret(self) -> str:
-        return crypto.decrypt(self.secret_enc)
+        return crypto.decrypt_secret(self.secret_enc, self._aad())
 
     def __str__(self):
         return f"{self.email} ({self.provider})"

@@ -4,7 +4,7 @@
 
 ### *Your bridge to the job you want.*
 
-Import recruiter contacts ✉️ → write smart email templates 📝 → tailor your resume with AI 🤖 → send from your own Gmail 🚀
+Import recruiter contacts ✉️ → write smart email templates 📝 → tailor your resume with AI 🤖 → send from your own email account 🚀
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-5.2_LTS-092E20?logo=django&logoColor=white)
@@ -52,12 +52,12 @@ Job hunting means sending the same kind of email dozens of times, tweaking your 
 ### 📬 Campaigns
 - Choose template, recipients and resume, then preview every email
 - Sends in **batches of 5** with gaps between messages
-- **Daily limit** (default 40, max 200) so your Gmail stays healthy
+- **Daily limit** (default 40, max 200) so your mailbox stays healthy
 - Auto-pause on rate limits, safe retries, and no blind re-sends
 
 ### 🔐 Accounts & Security
 - Email verification, password reset, **2FA** (authenticator app), and **Google sign-in**
-- Gmail app password stored with **Fernet encryption**
+- SMTP passwords stored with **AES-256-GCM** (bound to the owning user); see [email-service/README.md](email-service/README.md)
 - CSRF protection, rate limiting, header-injection blocking, HTML sanitising
 
 ---
@@ -69,7 +69,7 @@ Job hunting means sending the same kind of email dozens of times, tweaking your 
 | 🐍 Backend | Django 5.2 LTS |
 | 🗄️ Database | SQLite (local) / PostgreSQL (production) |
 | 🎨 Frontend | Django templates, custom CSS, Alpine.js |
-| ✉️ Email | Gmail SMTP (`smtplib`) |
+| ✉️ Email | Each user's own SMTP account (Gmail / Outlook / Yahoo / custom). On Render, sent through a small Node service on Vercel (`email-service/`) |
 | 🔑 Encryption | `cryptography` (Fernet) |
 | 🧼 Sanitising | `nh3` |
 | 📑 Parsing | `openpyxl` `xlrd` `python-docx` `pypdf` `pytesseract` |
@@ -104,7 +104,7 @@ manage.py run_sender                          # background sending
 
 ## 🧭 How to Use
 
-1. ⚙️ **Settings → Gmail sending:** turn on 2-Step Verification, create an [app password](https://myaccount.google.com/apppasswords) and paste it in
+1. ⚙️ **Settings → Email sending:** pick your provider (Gmail, Outlook, Yahoo or custom), paste an app password or SMTP credential, press **Test Connection**, then connect (Gmail: turn on 2-Step Verification and create an [app password](https://myaccount.google.com/apppasswords))
 2. 📇 **Contacts:** import your recruiter list and review the preview
 3. 📝 **Templates:** pick a role starter and personalise it
 4. 📄 **Resume Studio:** upload your resume and tailor it to a job

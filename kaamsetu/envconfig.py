@@ -89,3 +89,19 @@ def validate_production(*, secret_key_set: bool, token_key_set: bool) -> None:
         missing.append("TOKEN_ENCRYPTION_KEY")
     if missing:
         raise ImproperlyConfigured(f"Missing required environment variable(s) for production: {', '.join(missing)}.")
+
+
+def validate_email_relay(*, url: str, secret: str, encryption_key_set: bool, debug: bool) -> None:
+    """Checks the Render -> Vercel email relay settings. Leaving the URL empty means 'send SMTP directly'."""
+    problems = []
+    if url:
+        if not debug and not url.lower().startswith("https://"):
+            problems.append("VERCEL_EMAIL_API_URL must start with https://.")
+        if len(secret) < 32:
+            problems.append("VERCEL_EMAIL_SERVICE_SECRET must be set to at least 32 characters when VERCEL_EMAIL_API_URL is set.")
+    if url and not debug and not encryption_key_set:
+        # Only enforced once the relay is switched on, so deploying this code never stops an existing site from booting.
+        # (Without the key, saving a new email connection fails with a clear error; saved Fernet rows keep working.)
+        problems.append("EMAIL_ENCRYPTION_KEY is required in production when VERCEL_EMAIL_API_URL is set.")
+    if problems:
+        raise ImproperlyConfigured("Email configuration error: " + " ".join(problems))

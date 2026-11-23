@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -12,14 +13,16 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from kaamsetu.throttle import hit
+from outreach import connection as mail_connection
 from outreach.connection import active_connection, disconnect, save_smtp_connection
 from outreach.engine import accepted_last_24h
 from outreach.mailer import MailError
 from outreach.models import Campaign, Contact, EmailTemplate
+from outreach.smtp_presets import PRESETS
 from resumes.ai.provider import provider_label
 from resumes.models import Resume
 
-from .forms import GmailConnectForm, ProfileForm
+from .forms import MailConnectForm, ProfileForm
 
 
 WALKTHROUGH_STEPS = [
@@ -31,7 +34,7 @@ WALKTHROUGH_STEPS = [
      "text": "Pick a starter for your role, or write a blank one. Placeholders fill in for each recipient automatically."},
     {"img": "img/walkthrough/4-template-editor.png", "title": "Write it yourself, or let AI draft it",
      "text": "A document-style editor with live preview — or extract facts from your resume and have AI draft a tailored email."},
-    {"img": "img/walkthrough/5-campaigns.png", "title": "Send from your own Gmail",
+    {"img": "img/walkthrough/5-campaigns.png", "title": "Send from your own email",
      "text": "Nothing goes out until you confirm. Track accepted, failed and queued sends with an honest status for each one."},
     {"img": "img/walkthrough/7-resume-workspace.png", "title": "Tailor your resume per job",
      "text": "Edit your resume, then tailor it to a specific job description. Invented numbers or skills are always blocked."},
@@ -59,7 +62,7 @@ def dashboard(request):
         "campaigns": Campaign.objects.filter(owner=user).count(),
     }
     steps = [
-        ("Connect Gmail", "Send from your own address with an app password.", bool(conn), reverse("settings")),
+        ("Connect your email", "Send from your own address (Gmail, Outlook, Yahoo or any SMTP).", bool(conn), reverse("settings")),
         ("Add recruiter contacts", "Paste emails or import a CSV, Excel, Word, PDF or screenshot.", counts["contacts"] > 0, reverse("contact_import")),
         ("Pick an email template", "Start from a role-specific template and make it yours.", counts["templates"] > 0, reverse("template_gallery")),
         ("Add your resume", "Import your current resume or start from a blank one.", counts["resumes"] > 0, reverse("resume_list")),
@@ -95,17 +98,18 @@ def settings_view(request):
         profile_form.save()
         messages.success(request, "Settings saved.")
         return redirect("settings")
-    return _render_settings(request, profile_form, GmailConnectForm(prefix="g"))
+    return _render_settings(request, profile_form, MailConnectForm(prefix="m"))
 
 
-def _render_settings(request, profile_form, gmail_form):
-    """One place builds the Settings page, so it looks the same after a failed Gmail connect."""
+def _render_settings(request, profile_form, mail_form):
+    """One place builds the Settings page, so it looks the same after a failed email connect."""
     return render(
         request,
         "accounts/settings.html",
         {
             "profile_form": profile_form,
-            "gmail_form": gmail_form,
+            "mail_form": mail_form,
+            "presets": PRESETS,
             "conn": active_connection(request.user),
             "ai_label": provider_label(),
             "mfa_on": is_mfa_enabled(request.user),
@@ -116,32 +120,59 @@ def _render_settings(request, profile_form, gmail_form):
     )
 
 
+def _form_errors(form) -> str:
+    errors = form.non_field_errors() or next((e for e in form.errors.values() if e), None)
+    return str(errors[0]) if errors else "Check the details and try again."
+
+
+def _run_mail_form(request, save: bool):
+    """Shared by Test Connection and Connect: validates the form, then signs in to the SMTP server.
+
+    Returns (form, message, ok). Plaintext passwords exist only for the length of this call."""
+    form = MailConnectForm(request.POST, prefix="m")
+    # Shared budget for tests and saves: each one makes the email service sign in to a real mail server.
+    if not hit(f"mailconnect:{request.user.pk}", limit=12, window_seconds=600):
+        return form, "Too many attempts. Wait ten minutes before trying again.", False
+    if not form.is_valid():
+        return form, _form_errors(form), False
+    cfg, password = form.cleaned_data["smtp"], form.cleaned_data["password"]
+    try:
+        if save:
+            save_smtp_connection(request.user, cfg, password)
+        else:
+            mail_connection.verify_smtp(cfg, password)
+    except MailError as e:
+        return form, e.message, False
+    return form, "", True
+
+
 @login_required
 @require_POST
 def mail_connect(request):
-    form = GmailConnectForm(request.POST, prefix="g")
-    if not hit(f"mailconnect:{request.user.pk}", limit=8, window_seconds=600):
-        form.is_valid()
-        form.add_error(None, "Too many attempts. Wait ten minutes before trying again.")
-    elif form.is_valid():
-        try:
-            save_smtp_connection(request.user, form.cleaned_data["gmail_address"], form.cleaned_data["app_password"])
-        except MailError as e:
-            form.add_error(None, e.message)
-        else:
-            messages.success(request, f"Gmail connected. Emails will be sent from {form.cleaned_data['gmail_address']}.")
-            return redirect("settings")
-    errors = form.non_field_errors() or form.errors.get("app_password") or form.errors.get("gmail_address")
-    if errors:
-        messages.error(request, f"Gmail not connected: {errors[0]}")
+    form, error, ok = _run_mail_form(request, save=True)
+    if ok:
+        messages.success(request, f"Email connected. Emails will be sent from {form.cleaned_data['smtp'].email}.")
+        return redirect("settings")
+    messages.error(request, f"Email not connected: {error}")
+    form.add_error(None, error) if not form.errors else None
     return _render_settings(request, ProfileForm(instance=request.user.profile, prefix="p"), form)
+
+
+@login_required
+@require_POST
+def mail_test(request):
+    """Test Connection: signs in without saving anything and without sending an email."""
+    form, error, ok = _run_mail_form(request, save=False)
+    if ok:
+        return JsonResponse({"ok": True, "message": f"Connected to {form.cleaned_data['smtp'].host}. The login works and nothing was sent."})
+    return JsonResponse({"ok": False, "message": error}, status=400)
 
 
 @login_required
 @require_POST
 def mail_disconnect(request):
     disconnect(request.user)
-    messages.success(request, "Gmail disconnected and the stored app password was deleted.")
+    messages.success(request, "Email disconnected and the stored password was deleted.")
     return redirect("settings")
 
 

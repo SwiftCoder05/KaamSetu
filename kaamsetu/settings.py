@@ -6,7 +6,7 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
-from .envconfig import build_database, validate_ai, validate_production
+from .envconfig import build_database, validate_ai, validate_email_relay, validate_production
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 # Two separate files: ".env" for your laptop, ".env.production" for the deployed app.
@@ -187,6 +187,14 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_BYTES + 1024 * 1024
 #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 TOKEN_ENCRYPTION_KEY = os.environ.get("TOKEN_ENCRYPTION_KEY", "")
 
+# Per-user SMTP connections (AES-256-GCM key, base64 of 32 random bytes). Generate with:
+#   python -c "import secrets,base64; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())"
+EMAIL_ENCRYPTION_KEY = os.environ.get("EMAIL_ENCRYPTION_KEY", "").strip()
+# Render blocks outbound SMTP, so mail is relayed through the separate email service deployed on Vercel.
+# Leave VERCEL_EMAIL_API_URL empty to connect to SMTP servers directly (local development).
+VERCEL_EMAIL_API_URL = os.environ.get("VERCEL_EMAIL_API_URL", "").strip().rstrip("/")
+VERCEL_EMAIL_SERVICE_SECRET = os.environ.get("VERCEL_EMAIL_SERVICE_SECRET", "").strip()
+
 # Sending
 DEFAULT_DAILY_LIMIT = int(os.environ.get("DEFAULT_DAILY_LIMIT", "40"))
 SEND_BATCH_SIZE = int(os.environ.get("SEND_BATCH_SIZE", "5"))
@@ -224,6 +232,9 @@ validate_ai(
 )
 if not DEBUG:
     validate_production(secret_key_set=bool(SECRET_KEY), token_key_set=bool(TOKEN_ENCRYPTION_KEY))
+validate_email_relay(
+    url=VERCEL_EMAIL_API_URL, secret=VERCEL_EMAIL_SERVICE_SECRET, encryption_key_set=bool(EMAIL_ENCRYPTION_KEY), debug=DEBUG,
+)
 
 # Optional TTF font for PDF export (full Unicode). Falls back to common system fonts, then Helvetica (Latin-1 only).
 PDF_FONT_PATH = os.environ.get("PDF_FONT_PATH", "")

@@ -14,8 +14,8 @@
 {% if not conn %}
 <div class="alert warn" style="margin-bottom:1rem">
   {% icon 'mail' 16 %}
-  <div class="grow"><strong>Connect Gmail to start sending</strong>You can prepare contacts, templates and resumes now. Sending needs a Gmail app password.</div>
-  <a class="btn sm" href="{% url 'settings' %}">Connect Gmail</a>
+  <div class="grow"><strong>Connect your email to start sending</strong>You can prepare contacts, templates and resumes now. Sending needs your own email account (Gmail, Outlook, Yahoo or any SMTP).</div>
+  <a class="btn sm" href="{% url 'settings' %}">Connect Email</a>
 </div>
 {% endif %}
 

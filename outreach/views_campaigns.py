@@ -20,7 +20,7 @@ from resumes.export import safe_filename, to_pdf
 from resumes.models import ResumeVersion
 
 from . import engine
-from .connection import active_connection, mailer_factory_for
+from .connection import active_connection, connection_for_campaign, mailer_factory_for
 from .files import FileExtractError, detect_file_kind
 from .models import Campaign, CampaignAttachment, Contact, EmailTemplate, Recipient
 from .personalization import runner, validators
@@ -262,7 +262,7 @@ def campaign_confirm(request, pk):
         messages.error(request, "Tick the confirmation box to send.")
         return redirect("campaign_detail", pk=c.pk)
     if not active_connection(request.user):
-        messages.error(request, "Connect Gmail in Settings before sending.")
+        messages.error(request, "Connect your email account in Settings before sending.")
         return redirect("campaign_detail", pk=c.pk)
     recipients = list(c.recipients.only("subject", "body", "content_source", "gen_started_at"))
     if any(r.content_source == Recipient.Source.PENDING or r.is_generating for r in recipients):
@@ -319,9 +319,9 @@ def campaign_send(request, pk):
         return JsonResponse(_state(c))
     if c.status in (Campaign.Status.COMPLETED, Campaign.Status.CANCELLED):
         return JsonResponse(_state(c))
-    conn = active_connection(request.user)
+    conn = connection_for_campaign(c)  # always the campaign owner's own account
     if not conn:
-        return JsonResponse(_state(c, {"error": "Connect Gmail in Settings before sending."}), status=400)
+        return JsonResponse(_state(c, {"error": "Connect your email account in Settings before sending."}), status=400)
     try:
         result = engine.process_batch(c, mailer_factory_for(conn), from_email=conn.email)
     except engine.NotConfirmedError as e:

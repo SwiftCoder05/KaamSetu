@@ -198,8 +198,9 @@
   const tones = { accepted: "ok", completed: "ok", sending: "info", confirmed: "info", queued: "muted", paused: "warn", failed: "bad", skipped: "muted", cancelled: "muted" };
   const pauseText = {
     daily_limit: "Daily sending limit reached. Resume later, once the rolling 24-hour window has room again.",
-    provider_rate_limit: "Gmail asked us to slow down. Try resuming in a while.",
-    auth_error: "Gmail rejected the app password. Reconnect in Settings, then resume.",
+    provider_rate_limit: "Your email provider asked us to slow down. Try resuming in a while.",
+    auth_error: "Your email provider rejected the saved password. Reconnect your email in Settings, then resume.",
+    service_error: "The email sending service is unavailable or misconfigured. Try resuming later; if it keeps happening, contact the site owner.",
     user: "Paused by you.",
   };
   let running = false;

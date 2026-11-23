@@ -8,7 +8,7 @@ import time
 
 from django.core.management.base import BaseCommand
 
-from outreach.connection import active_connection, mailer_factory_for
+from outreach.connection import connection_for_campaign, mailer_factory_for
 from outreach.engine import NotConfirmedError, process_batch, runnable_campaigns
 
 
@@ -22,7 +22,7 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         while True:
             for c in runnable_campaigns().select_related("owner"):
-                conn = active_connection(c.owner)
+                conn = connection_for_campaign(c)
                 if not conn:
                     continue
                 try:

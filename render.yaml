@@ -26,3 +26,10 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      # Per-user email sending through the Vercel email service (see email-service/README.md)
+      - key: EMAIL_ENCRYPTION_KEY
+        sync: false
+      - key: VERCEL_EMAIL_API_URL
+        sync: false
+      - key: VERCEL_EMAIL_SERVICE_SECRET
+        sync: false

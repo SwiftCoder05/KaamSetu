@@ -14,7 +14,7 @@
 {% if c.status == 'draft' %}
   {# ───────────── PREVIEW & CONFIRM ───────────── #}
   {% if not conn %}
-    <div class="alert warn" style="margin-bottom:1rem">{% icon 'mail' %}<div class="grow"><strong>Connect Gmail to send</strong>Your draft is saved. Connect Gmail with an app password, then come back here.</div><a class="btn sm" href="{% url 'settings' %}">Connect</a></div>
+    <div class="alert warn" style="margin-bottom:1rem">{% icon 'mail' %}<div class="grow"><strong>Connect your email to send</strong>Your draft is saved. Connect your own email account in Settings, then come back here.</div><a class="btn sm" href="{% url 'settings' %}">Connect</a></div>
   {% endif %}
   {% if is_ai %}
     <div class="alert {% if ai_external %}warn{% else %}info{% endif %}" id="ai-box" style="margin-bottom:1rem"
@@ -81,10 +81,10 @@
         <ul class="small" style="margin:0;padding-left:1.1rem;display:grid;gap:.3rem">
           <li>{{ counts.total }} email{{ counts.total|pluralize }}, sent in small batches with short gaps.</li>
           <li>Daily limit: {{ sent_24h }} of {{ daily_limit }} used in the last 24 h. If the limit is reached the campaign pauses and you can resume later.</li>
-          <li>“Accepted” means Gmail took the message for delivery. Replies and bounces arrive in your Gmail inbox.</li>
+          <li>“Accepted” means your mail provider took the message for delivery. Replies and bounces arrive in your own inbox{% if conn %} ({{ conn.email }}){% endif %}.</li>
         </ul>
         <form method="post" action="{% url 'campaign_confirm' c.pk %}" id="confirm-form" class="stack" data-has-resume="{% if c.resume_version or attachment %}1{% else %}0{% endif %}">{% csrf_token %}
-          <label class="row small" style="align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" name="confirm" value="yes" required style="margin-top:2px"> <span>I've reviewed these emails and want to send them from my Gmail account.</span></label>
+          <label class="row small" style="align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" name="confirm" value="yes" required style="margin-top:2px"> <span>I've reviewed these emails and want to send them from {% if conn %}<strong>{{ conn.email }}</strong>{% else %}my email account{% endif %}.</span></label>
           <button class="btn primary lg" id="send-btn" data-conn="{% if conn %}1{% endif %}" {% if not conn or pending or unfilled %}disabled{% endif %}>{% icon 'send' 16 %} Send {{ counts.total }} email{{ counts.total|pluralize }}</button>
         </form>
       </section>
@@ -100,7 +100,7 @@
     <div class="alert info" id="live-box" hidden style="margin-bottom:1rem"><div><strong>Sending…</strong>Keep this page open, or run <code>python manage.py run_sender</code> to send in the background.</div></div>
 
     <div class="grid grid-4" style="margin-bottom:1rem">
-      <div class="card stat"><div class="num" id="n-accepted">{{ counts.accepted }}</div><div class="lbl">Accepted by Gmail</div></div>
+      <div class="card stat"><div class="num" id="n-accepted">{{ counts.accepted }}</div><div class="lbl">Accepted by mail server</div></div>
       <div class="card stat"><div class="num" id="n-queued">{{ counts.queued }}</div><div class="lbl">Waiting</div></div>
       <div class="card stat"><div class="num" id="n-failed">{{ counts.failed }}</div><div class="lbl">Failed</div></div>
       <div class="card stat"><div class="num" id="n-skipped">{{ counts.skipped }}</div><div class="lbl">Skipped</div></div>
@@ -141,7 +141,7 @@
         </tbody>
       </table>
     </div>
-    <p class="tiny muted" style="margin-top:.8rem">“Accepted” means Gmail accepted the message for delivery. It does not prove the email reached the inbox or was read.</p>
+    <p class="tiny muted" style="margin-top:.8rem">“Accepted” means your mail provider accepted the message for delivery. It does not prove the email reached the inbox or was read.</p>
   </div>
 {% endif %}
 {% endblock %}

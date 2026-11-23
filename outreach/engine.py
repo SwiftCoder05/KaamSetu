@@ -2,7 +2,7 @@
 
 Safety rules:
 - Nothing is sent unless the campaign was explicitly confirmed by its owner.
-- A per-user rolling 24h limit caps how many messages Gmail is asked to accept.
+- A per-user rolling 24h limit caps how many messages the mail provider is asked to accept.
 - Each recipient row is claimed atomically, so two workers can never send the same email twice.
 - Rate-limit and auth errors pause the campaign and put the recipient back; nothing is wrongly failed.
 """
@@ -77,7 +77,7 @@ def _expire_stale(c: Campaign, now):
     """A row stuck in 'sending' means a worker died mid-send; it may or may not have gone out, so it is never resent blindly."""
     for r in c.recipients.filter(status=Recipient.Status.SENDING, claimed_at__lt=now - STALE_AFTER):
         r.status = Recipient.Status.FAILED
-        r.error = "Interrupted while sending. It may have been delivered: check your Gmail Sent folder before retrying."
+        r.error = "Interrupted while sending. It may have been delivered: check your Sent folder before retrying."
         r.save(update_fields=["status", "error"])
         _log(r, "failed", "stale claim")
 
@@ -178,17 +178,18 @@ def process_batch(
                             text=text,
                             html=email_document(body_html),
                             attachment=attachment,
+                            request_id=f"rcpt-{r.pk}",  # stable across retries: the email service never sends one recipient twice
                         )
                     )
                 except MailError as err:
                     if err.kind in ("transient", "rate_limit") and attempt < max_retries:
                         sleep(min(err.retry_after or 2**attempt, 15))
                         continue
-                    if err.kind in ("rate_limit", "auth"):
+                    if err.kind in ("rate_limit", "auth", "service"):
                         # Not this recipient's fault: put it back and stop, so nothing is lost or wrongly failed.
                         _release(r, err.message)
                         _log(r, "failed", err.message)
-                        pause = "provider_rate_limit" if err.kind == "rate_limit" else "auth_error"
+                        pause = {"rate_limit": "provider_rate_limit", "auth": "auth_error"}.get(err.kind, "service_error")
                         result.processed -= 1
                     else:
                         _fail(r, err.message)
@@ -200,7 +201,7 @@ def process_batch(
                     r.sent_at = timezone.now()
                     r.error = ""
                     r.save(update_fields=["status", "message_id", "sent_at", "error"])
-                    _log(r, "accepted", "Gmail accepted the message")
+                    _log(r, "accepted", "Mail server accepted the message")
                     result.accepted += 1
                     break
             if gap and i < len(claimed) - 1 and not pause:
