@@ -95,11 +95,13 @@ document.addEventListener("alpine:init", () => {
       this.ai.result = null;
       this.ai.elapsed = 0;
       const timer = setInterval(() => this.ai.elapsed++, 1000);
+      const wait = window.kaamWait?.start(this.$refs.wait, "resume");
       const { ok, data } = await window.kaam.post(cfg.tailorUrl, {
         job_description: this.ai.jd, instructions: this.ai.instructions, job_title: this.ai.job_title, company: this.ai.company,
         confirm: true, // the explicit button press is the consent for this request
       });
       clearInterval(timer);
+      wait?.stop();
       this.ai.busy = false;
       if (!ok) { this.ai.error = data.error; return; }
       data.suggestions.forEach((s) => (s.decision = s.state === "blocked" ? "decline" : null));

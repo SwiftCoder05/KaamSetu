@@ -73,3 +73,10 @@ tbody tr:hover { background: #fdf8ea; }
 .auth-side { background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-deep) 100%); }
 .auth-side blockquote { font-family: "Inter", var(--font-sans); font-weight: 800; letter-spacing: -.03em; }
 .auth-form { background: linear-gradient(180deg, #fbeccf 0, var(--paper) 60%); }
+
+/* sidebar: bigger logo, slimmer nav pills */
+.sidebar .brand-logo { height: 84px; }
+.nav a { padding: .4rem .8rem; font-size: .88rem; gap: .55rem; }
+.nav a.active { box-shadow: none; }
+.nav svg { width: 16px; height: 16px; }
+.nav-label { font-size: .68rem; }

@@ -111,12 +111,14 @@
     btn.disabled = true;
     $("regen-btn").disabled = true;
     show("result-loading");
+    const wait = window.kaamWait?.start($("wait-panel"), "email");
     let res;
     try {
       res = await window.kaam.post(root.dataset.url, payload);
     } catch {
       res = { ok: false, data: { error: "Network error. Check your connection and try again." } };
     }
+    wait?.stop();
     busy = false;
     btn.disabled = false;
     $("regen-btn").disabled = false;

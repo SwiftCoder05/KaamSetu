@@ -92,10 +92,10 @@
       <h2>{% icon 'mail' 16 %} Draft</h2>
       <p>Your draft appears here with the experience it is based on, the skills you are missing, and the result of the fact check.</p>
     </div>
-    <div id="result-loading" hidden class="stack" style="--gap:.4rem">
+    <div id="result-loading" hidden class="stack" style="--gap:.6rem">
       <h2>{% icon 'sparkles' 16 %} Writing…</h2>
-      <p class="small muted">Analysing the job, matching it to your resume, writing, reviewing and fact-checking the draft.</p>
       <div class="progress" aria-hidden="true"><span class="p-ok" style="width:35%;animation:job-pulse 1.4s ease-in-out infinite alternate"></span></div>
+      <div id="wait-panel"></div>
     </div>
     <div id="result-body" hidden class="stack">
       <div class="row between"><h2>{% icon 'mail' 16 %} Draft</h2><span class="badge dot" id="status-badge"></span></div>
@@ -126,4 +126,4 @@
 </div>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="{% vstatic 'js/job_email.js' %}"></script>{% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/wait_panel.js' %}"></script><script src="{% vstatic 'js/job_email.js' %}"></script>{% endblock %}

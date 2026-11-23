@@ -204,6 +204,37 @@ td input[type=text] { padding: .35rem .5rem; font-size: .85rem; }
 @media (max-width: 1000px) { .job-layout { grid-template-columns: 1fr; } }
 .job-layout textarea#out-body { min-height: 300px; font-family: inherit; line-height: 1.55; }
 @keyframes job-pulse { from { width: 15%; } to { width: 85%; } }
+/* "while you wait" panel for slow AI calls */
+.wait-panel { display: grid; gap: .7rem; }
+.wait-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.wait-time { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--indigo); background: var(--indigo-soft); border-radius: 999px; padding: .1rem .6rem; font-size: .85rem; }
+.wait-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.wait-steps li { position: relative; padding-left: 1.6rem; font-size: .9rem; color: var(--muted); transition: color .3s; }
+.wait-steps li::before { content: ""; position: absolute; left: .15rem; top: .3rem; width: .8rem; height: .8rem; border-radius: 50%; border: 2px solid var(--line); box-sizing: border-box; }
+.wait-steps li.done { color: var(--ink); }
+.wait-steps li.done::before { content: "✓"; border-color: var(--ok); background: var(--ok); color: #fff; font-size: .55rem; line-height: .6rem; text-align: center; font-weight: 800; }
+.wait-steps li.now { color: var(--ink); font-weight: 600; }
+.wait-steps li.now::before { border-color: var(--saffron); border-right-color: transparent; animation: wait-spin .9s linear infinite; }
+@keyframes wait-spin { to { transform: rotate(360deg); } }
+.wait-note { margin-top: -.2rem; }
+.wait-label { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-top: .3rem; }
+.wait-card { background: linear-gradient(135deg, var(--saffron-soft), #fff7e8); border: 1px solid #f1d9a8; border-radius: 16px; padding: .9rem 1rem 1rem; display: grid; gap: .55rem; min-height: 150px; align-content: start; }
+.wait-card-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.wait-tag { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #8a4f0c; background: #fff; border-radius: 999px; padding: .15rem .6rem; }
+.wait-tag[data-type="quiz"] { color: #fff; background: var(--indigo); }
+.wait-nav { display: flex; align-items: center; gap: .3rem; }
+.wait-arrow { border: 1px solid #ead2a2; background: #fff; border-radius: 50%; width: 1.7rem; height: 1.7rem; cursor: pointer; font-size: 1.05rem; line-height: 1; color: var(--ink); }
+.wait-arrow:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
+.wait-body { display: grid; gap: .55rem; font-size: .95rem; line-height: 1.55; }
+.wait-body.fade-in { animation: wait-fade .45s ease-out; }
+@keyframes wait-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.wait-claim { font-weight: 600; }
+.wait-choices { display: flex; gap: .5rem; }
+.wait-choices .btn.right { background: var(--ok); border-color: var(--ok); color: #fff; }
+.wait-choices .btn.wrong { background: var(--bad); border-color: var(--bad); color: #fff; }
+.wait-choices .btn:disabled { opacity: 1; cursor: default; }
+.wait-choices .btn:disabled:not(.right):not(.wrong) { opacity: .5; }
+.wait-answer { background: #fff; border-radius: 10px; padding: .55rem .7rem; }
 .doc-shell { background: var(--sand); border-radius: 16px; padding: clamp(.75rem, 2vw, 1.5rem); }
 .doc { background: #fff; border-radius: 6px; box-shadow: var(--shadow-card); max-width: 760px; margin: 0 auto; }
 .doc-head { padding: 1.25rem 1.5rem .5rem; border-bottom: 1px solid #efe9dc; display: grid; gap: .5rem; }
@@ -787,3 +818,7 @@ body.modal-open { overflow: hidden; }
 
 .user-count { display: flex; align-items: center; gap: .5rem; margin-top: 1.1rem; font-size: .92rem; color: var(--muted); }
 .user-count strong { color: var(--ink); }
+/* logo image (replaces the "K" mark + wordmark) */
+.brand-logo { display: block; height: 52px; width: auto; }
+.brand.inverted { background: #fff; border-radius: 14px; padding: .3rem .8rem; align-self: flex-start; }
+.brand.inverted .brand-logo { height: 46px; }

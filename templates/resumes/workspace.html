@@ -2,6 +2,7 @@
 {% load kaam static %}
 {% block title %}{{ resume.title }}{% endblock %}
 {% block head %}
+<script src="{% vstatic 'js/wait_panel.js' %}"></script>
 <script src="{% vstatic 'js/resume.js' %}"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 {% endblock %}
@@ -239,6 +240,7 @@
             </div>
             <div class="alert bad small" x-show="ai.error" x-text="ai.error"></div>
           </div>
+          <div class="card" x-show="ai.busy"><div x-ref="wait"></div></div>
 
           <template x-if="ai.result">
             <div class="stack">
