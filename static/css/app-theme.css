@@ -1,0 +1,75 @@
+/* App theme: matches the landing page (bold Inter headings, pill buttons, dark primary, soft warm
+   header wash, rounded cards). Loaded after app.css, so it only overrides. */
+:root { --font-display: "Inter", ui-sans-serif, "Segoe UI", system-ui, sans-serif; --radius: 20px; --ink-btn: #1d1a16; }
+
+/* page canvas: warm wash at the top, like the landing hero */
+.shell { background: var(--paper); }
+.main { background: linear-gradient(180deg, #fbeccf 0, #f9efd9 150px, var(--paper) 380px) no-repeat; }
+
+/* headings */
+.shell h1, .shell h2, .shell h3, .auth h1, .auth h2 { font-family: "Inter", var(--font-sans); font-weight: 800; letter-spacing: -.03em; }
+.shell h1 { font-size: clamp(1.9rem, 3.4vw, 2.7rem); line-height: 1.08; }
+.shell h2 { font-size: 1.25rem; line-height: 1.2; }
+.shell h3 { font-size: 1.05rem; }
+.page-head { margin-bottom: 1.75rem; }
+.page-head .eyebrow { color: var(--indigo); letter-spacing: .08em; font-weight: 700; font-size: .78rem; }
+.page-head p { color: #3a342b; font-size: 1.02rem; }
+.hero-band h1, .stat .num, .metric-value, .ats-num, .ring-label strong, .brand-name, .brand-mark { font-family: "Inter", var(--font-sans); font-weight: 800; letter-spacing: -.03em; }
+
+/* sidebar */
+.sidebar { background: #fff; border-right: 1px solid var(--line); }
+.brand-name { font-size: 1.2rem; }
+.nav a { border-radius: 999px; padding: .6rem .95rem; font-weight: 600; color: #3a342b; }
+.nav a:hover { background: var(--saffron-soft); color: var(--ink); }
+.nav a.active { background: var(--ink-btn); color: #fff; box-shadow: inset 0 -3px 0 rgb(255 255 255 / .12); }
+.nav-label { color: var(--indigo); font-weight: 700; letter-spacing: .1em; }
+.sidebar-foot { border-top: 1px solid var(--line); }
+
+/* buttons */
+.shell .btn, .auth .btn { border-radius: 999px; font-weight: 700; padding: .62rem 1.2rem; }
+.shell .btn.sm { padding: .4rem .85rem; border-radius: 999px; }
+.shell .btn.lg { padding: .9rem 1.6rem; }
+.btn.primary { --bg: var(--ink-btn); --bd: var(--ink-btn); --fg: #fff; box-shadow: inset 0 -3px 0 rgb(255 255 255 / .12); }
+.btn.primary:hover { background: #000; box-shadow: 0 10px 20px -10px rgb(29 26 22 / .6); }
+.btn.accent { --bg: var(--saffron); --bd: var(--saffron); }
+.btn:not(.primary):not(.accent):not(.ghost):not(.danger):not(.on-dark) { border-width: 1.5px; }
+.btn:not(.primary):not(.accent):not(.ghost):not(.danger):not(.on-dark):hover { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+.btn.ghost:hover { background: var(--saffron-soft); }
+.link-btn, .small a, .card-head a.small { font-weight: 700; }
+
+/* cards */
+.card { border-radius: 20px; border-color: #e8e0cd; box-shadow: 0 1px 2px rgb(29 26 22 / .04), 0 14px 30px -18px rgb(29 26 22 / .22); }
+.card-link:hover { border-color: var(--indigo); }
+.section-card, .entry, .suggestion { border-radius: 16px; }
+.tpl-card .paper, .alert { border-radius: 14px; }
+.empty { border-radius: 20px; border-color: #d8cdb6; background: rgb(255 254 251 / .8); }
+
+/* dashboard metrics become four tiles */
+.overview { background: transparent; border: 0; box-shadow: none; gap: 1rem; }
+.metric, .metric + .metric { background: var(--card); border: 1px solid #e8e0cd; border-radius: 20px; padding: 1.2rem 1.3rem; box-shadow: 0 14px 30px -20px rgb(29 26 22 / .25); transition: transform .15s, box-shadow .15s; }
+.metric:hover { transform: translateY(-3px); }
+.metric:nth-child(n+3) { border-top: 1px solid #e8e0cd; } .metric:nth-child(3) { border-left: 1px solid #e8e0cd; }
+.metric-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--indigo); }
+.metric-value { font-size: 2.3rem; line-height: 1.1; }
+.metric:nth-child(2) .metric-label { color: #9a5b00; } .metric:nth-child(3) .metric-label { color: var(--ok); } .metric:nth-child(4) .metric-label { color: var(--rose); }
+.setup-item { border-radius: 14px; } .setup-item:hover { border-color: var(--indigo); background: var(--indigo-soft); }
+.how li::before { background: var(--ink-btn); color: #fff; }
+
+/* forms, tables, tabs */
+input[type=text], input[type=email], input[type=password], input[type=number], input[type=url], input[type=search], select, textarea { border-radius: 12px; border-color: #ddd4c0; }
+.table-wrap { border-radius: 18px; border-color: #e8e0cd; box-shadow: 0 14px 30px -22px rgb(29 26 22 / .25); }
+th { background: #fbf5e6; color: var(--indigo); font-weight: 700; }
+tbody tr:hover { background: #fdf8ea; }
+.tabs { border-bottom-color: #e8e0cd; }
+.tabs .on { color: var(--ink); border-bottom: 3px solid var(--saffron); font-weight: 700; }
+.seg { border-radius: 999px; } .seg button { border-radius: 999px; }
+.filter-pill, .choice, .quick, .badge { border-radius: 999px; }
+.choice, .quick { border-radius: 16px; }
+.dropzone { border-radius: 18px; }
+.toast { border-radius: 14px; }
+.topbar { background: #fff; }
+
+/* auth screens */
+.auth-side { background: linear-gradient(135deg, var(--indigo) 0%, var(--indigo-deep) 100%); }
+.auth-side blockquote { font-family: "Inter", var(--font-sans); font-weight: 800; letter-spacing: -.03em; }
+.auth-form { background: linear-gradient(180deg, #fbeccf 0, var(--paper) 60%); }

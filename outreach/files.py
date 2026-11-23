@@ -186,11 +186,16 @@ def text_from_docx(data: bytes) -> str:
             parts.append(" | ".join(c.text for c in row.cells))
     for sec in d.sections:
         parts += [p.text for p in sec.header.paragraphs] + [p.text for p in sec.footer.paragraphs]
-    # mailto: hyperlinks whose display text is not the address
+    # Hyperlinks whose display text is not the address itself (e.g. the word "LinkedIn" linking to a profile URL)
     for rel in d.part.rels.values():
         target = getattr(rel, "_target", "")
-        if isinstance(target, str) and target.lower().startswith("mailto:"):
+        if not isinstance(target, str) or not target:
+            continue
+        low = target.lower()
+        if low.startswith("mailto:"):
             parts.append(target[7:].split("?")[0])
+        elif low.startswith(("http://", "https://")):
+            parts.append(target)
     return "\n".join(parts)
 
 
@@ -226,8 +231,14 @@ def text_from_pdf(data: bytes) -> str:
                     uri = annot.get_object().get("/A", {}).get("/URI", "")
                 except Exception:  # noqa: BLE001
                     uri = ""
-                if isinstance(uri, str) and uri.lower().startswith("mailto:"):
+                if not isinstance(uri, str) or not uri:
+                    continue
+                low = uri.lower()
+                if low.startswith("mailto:"):
                     links.append(uri[7:].split("?")[0])
+                elif low.startswith(("http://", "https://")):
+                    # A hyperlinked word (e.g. "LinkedIn") has no URL in the visible text; the annotation is the only place it exists.
+                    links.append(uri)
     except FileExtractError:
         raise
     except Exception as e:  # noqa: BLE001

@@ -3,7 +3,7 @@
 {% block title %}Campaigns{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow">Tech job hunt</div><h1>Campaigns</h1><p>Each campaign sends one template to a set of contacts, with your resume attached if you choose.</p></div>
+  <div><div class="eyebrow">{{ request.user.profile.sender_name }}'s job hunt</div><h1>Campaigns</h1><p>Each campaign sends one template to a set of contacts, with your resume attached if you choose.</p></div>
   <a class="btn primary" href="{% url 'campaign_new' %}">{% icon 'plus' 16 %} New campaign</a>
 </div>
 {% if campaigns %}

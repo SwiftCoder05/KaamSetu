@@ -285,8 +285,6 @@ def version_apply(request, vid):
     v = _version(request, vid)
     body = _json_body(request)
     accepted = _accepted_from(body)
-    if not accepted:
-        return JsonResponse({"error": "Accept at least one suggestion first."}, status=400)
     try:
         nxt = _build_tailored(v, accepted)
     except ValidationError:

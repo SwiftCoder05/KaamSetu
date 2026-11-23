@@ -3,7 +3,7 @@
 {% block title %}Templates{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow">Tech job hunt</div><h1>Email templates</h1><p>Pick a starting point, then shape it in the editor. Placeholders like <span class="ph">&#123;&#123;first_name&#125;&#125;</span> fill in for each recipient.</p></div>
+  <div><div class="eyebrow">{{ request.user.profile.sender_name }}'s job hunt</div><h1>Email templates</h1><p>Pick a starting point, then shape it in the editor. Placeholders like <span class="ph">&#123;&#123;first_name&#125;&#125;</span> fill in for each recipient.</p></div>
   <form method="post" action="{% url 'template_create' %}">{% csrf_token %}<button class="btn primary">{% icon 'plus' 16 %} Blank template</button></form>
 </div>
 

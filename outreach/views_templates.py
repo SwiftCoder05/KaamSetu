@@ -1,6 +1,8 @@
 import json
 
+from django.conf import settings
 from django.contrib import messages
+from django.core.cache import cache
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -8,10 +10,12 @@ from django.views.decorators.http import require_POST
 
 from kaamsetu.throttle import hit
 from resumes.ai.provider import AiDisabledError, AiOutputError, AiQuotaError, AiUnavailableError, provider_from_settings, provider_label
+from outreach.files import FileExtractError, detect_file_kind, extract_document_text
+from resumes.importer import parse_resume_text
 from resumes.models import ResumeVersion
-from resumes.schema import resume_plain_text
+from resumes.schema import resume_links, resume_plain_text
 
-from .ai_writer import WriterInputError, run_email_writer
+from .ai_writer import Signature, WriterInputError, run_email_writer
 from .models import EmailTemplate
 from .render import KNOWN_PLACEHOLDERS, SAMPLE_CONTACT, STARTER_TEMPLATES, fill_sender_name, find_placeholders, render_email
 from .richtext import MAX_BODY_CHARS, is_blank, sanitize_html
@@ -93,6 +97,44 @@ def template_edit(request, pk):
     )
 
 
+def _upload_key(user_pk: int) -> str:
+    return f"tpl-resume-upload:{user_pk}"
+
+
+UPLOAD_TTL = 30 * 60  # seconds; the text is only kept for the user's next draft, never stored in the database
+
+
+@login_required
+@require_POST
+def template_resume_upload(request):
+    """Reads a resume the user uploads in the AI panel. The text is kept briefly in the cache for drafting only:
+    it is not saved as a resume and not written to the database."""
+    upload = request.FILES.get("file")
+    if not upload:
+        return JsonResponse({"error": "Choose a resume file first."}, status=400)
+    raw = upload.read()
+    try:
+        if len(raw) > settings.MAX_UPLOAD_BYTES:
+            raise FileExtractError("too_large", f"The file is larger than {settings.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+        if not raw:
+            raise FileExtractError("empty", "The file is empty.")
+        kind = detect_file_kind(upload.name, raw)
+        if kind not in {"pdf", "docx", "doc", "txt"}:
+            raise FileExtractError("unsupported_type", "Upload your resume as PDF, DOCX, DOC or TXT.")
+        text = extract_document_text(kind, raw)
+    except FileExtractError as e:
+        return JsonResponse({"error": e.message}, status=400)
+    data, _notes = parse_resume_text(text)
+    facts = resume_plain_text(data)
+    if not facts.strip():
+        return JsonResponse({"error": "No text could be read from that file."}, status=400)
+    cache.set(_upload_key(request.user.pk), {
+        "facts": facts, "links": resume_links(data),
+        "location": data.basics.location, "phone": data.basics.phone, "email": data.basics.email,
+    }, UPLOAD_TTL)
+    return JsonResponse({"name": upload.name[:120], "chars": len(facts)})
+
+
 @login_required
 @require_POST
 def template_ai(request, pk):
@@ -105,15 +147,31 @@ def template_ai(request, pk):
     if not isinstance(data, dict):
         return JsonResponse({"error": "Invalid request."}, status=400)
     sender_facts, resume_attached = "", False
+    signature = Signature()
     vid = str(data.get("resume_version", "")).strip()
-    if vid:
+    if data.get("resume_source") == "upload":
+        uploaded = cache.get(_upload_key(request.user.pk))
+        if not uploaded:
+            return JsonResponse({"error": "Your uploaded resume has expired. Upload it again."}, status=400)
+        sender_facts, resume_attached = uploaded["facts"][:8000], True
+        signature = Signature(
+            location=uploaded.get("location", ""), phone=uploaded.get("phone", ""),
+            email=uploaded.get("email", ""), links=uploaded.get("links", []),
+        )
+        v = None
+    elif vid:
         if not vid.isdigit():
             return JsonResponse({"error": "Unknown resume version."}, status=400)
         v = get_object_or_404(ResumeVersion, pk=int(vid), resume__owner=request.user)
-    else:  # no picker in the editor: the user's most recent resume supplies the facts, if they have one
+    else:  # no picker: the user's most recent resume supplies the facts, if they have one
         v = ResumeVersion.objects.filter(resume__owner=request.user).order_by("-created_at", "-id").first()
     if v:
-        sender_facts, resume_attached = resume_plain_text(v.parsed())[:8000], True
+        parsed = v.parsed()
+        sender_facts, resume_attached = resume_plain_text(parsed)[:8000], True
+        signature = Signature(
+            location=parsed.basics.location, phone=parsed.basics.phone,
+            email=parsed.basics.email, links=resume_links(parsed),
+        )
     profile = request.user.profile
     if profile.ai_enabled and data.get("confirm") is True and not hit(f"ai:{request.user.pk}", limit=12, window_seconds=3600):
         return JsonResponse({"error": "You've reached the hourly AI limit. Try again later."}, status=429)
@@ -131,6 +189,7 @@ def template_ai(request, pk):
             sender_name=profile.sender_name,
             sender_facts=sender_facts,
             resume_attached=resume_attached,
+            signature=signature,
         )
     except AiDisabledError as e:
         return JsonResponse({"error": str(e)}, status=403)

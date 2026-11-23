@@ -2,7 +2,9 @@ from allauth.account.models import EmailAddress
 from allauth.mfa.utils import is_mfa_enabled
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -20,10 +22,30 @@ from resumes.models import Resume
 from .forms import GmailConnectForm, ProfileForm
 
 
+WALKTHROUGH_STEPS = [
+    {"img": "img/walkthrough/1-dashboard.png", "title": "Everything in one place",
+     "text": "A dashboard that tracks your setup and shows exactly what's left before you can start sending."},
+    {"img": "img/walkthrough/2-contacts.png", "title": "Bring your recruiter list",
+     "text": "Paste emails, or import a CSV, Excel, Word, PDF or screenshot. You review every address before it's saved."},
+    {"img": "img/walkthrough/3-templates.png", "title": "Start from a role-specific template",
+     "text": "Pick a starter for your role, or write a blank one. Placeholders fill in for each recipient automatically."},
+    {"img": "img/walkthrough/4-template-editor.png", "title": "Write it yourself, or let AI draft it",
+     "text": "A document-style editor with live preview — or extract facts from your resume and have AI draft a tailored email."},
+    {"img": "img/walkthrough/5-campaigns.png", "title": "Send from your own Gmail",
+     "text": "Nothing goes out until you confirm. Track accepted, failed and queued sends with an honest status for each one."},
+    {"img": "img/walkthrough/7-resume-workspace.png", "title": "Tailor your resume per job",
+     "text": "Edit your resume, then tailor it to a specific job description. Invented numbers or skills are always blocked."},
+]
+
+
 def landing(request):
     if request.user.is_authenticated:
         return redirect("dashboard")
-    return render(request, "landing.html")
+    user_count = cache.get("landing_user_count")
+    if user_count is None:
+        user_count = get_user_model().objects.filter(is_active=True).count()
+        cache.set("landing_user_count", user_count, 300)
+    return render(request, "landing.html", {"walkthrough": WALKTHROUGH_STEPS, "user_count": user_count})
 
 
 @login_required

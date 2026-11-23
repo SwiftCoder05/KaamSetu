@@ -1,7 +1,7 @@
 {% load kaam %}
 <nav class="nav">
   <a href="{% url 'dashboard' %}" class="{% if p == '/dashboard/' %}active{% endif %}">{% icon 'home' %} Dashboard</a>
-  <div class="nav-label">Tech job hunt</div>
+  <div class="nav-label">{{ request.user.profile.sender_name }}'s job hunt</div>
   <a href="{% url 'contact_list' %}" class="{% if '/jobs/contacts' in p %}active{% endif %}">{% icon 'users' %} Contacts</a>
   <a href="{% url 'template_gallery' %}" class="{% if '/jobs/templates' in p %}active{% endif %}">{% icon 'mail' %} Templates</a>
   <a href="{% url 'job_email' %}" class="{% if '/jobs/apply' in p %}active{% endif %}">{% icon 'sparkles' %} Job application email</a>

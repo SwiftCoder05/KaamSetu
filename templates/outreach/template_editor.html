@@ -11,6 +11,7 @@
       <button type="button" class="eye-btn" data-preview-open aria-haspopup="dialog" aria-controls="pv-modal" title="Preview as a recipient sees it" aria-label="Preview the email">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g class="eye-lid"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3.2"/></g></svg>
       </button>
+      <button type="button" class="btn sm ghost" data-resume-draft title="Draft this email from your resume and a role" aria-label="Draft from resume">{% icon 'sparkles' 14 %} Draft from resume</button>
       <button type="submit" form="dup-form" class="btn sm ghost" title="Duplicate">{% icon 'copy' 14 %}</button>
       <button type="submit" form="del-form" class="btn sm ghost danger" title="Delete">{% icon 'trash' 14 %}</button>
       <a class="btn sm" href="{% url 'campaign_new' %}?template={{ t.pk }}">{% icon 'send' 14 %} Use in campaign</a>
@@ -85,12 +86,28 @@
       {% include "_ai_invite.html" with title="Let me write it with you" text="Paste a job post and I'll draft your email, polish it or make it shorter." form_id="ai-on-form" no_robot=True %}
     {% else %}
     <div class="stack" style="--gap:.55rem" id="ai-writer" data-url="{% url 'template_ai' t.pk %}">
-      <div class="field"><label for="ai-jd">Job description <span class="muted">(optional)</span></label>
-        <textarea id="ai-jd" rows="3" maxlength="12000" placeholder="Paste the job post so the email speaks to it"></textarea></div>
-      <div class="field"><label for="ai-instr">Instructions <span class="muted">(optional)</span></label>
-        <input type="text" id="ai-instr" maxlength="1000" placeholder="e.g. friendly tone, can join in 30 days"></div>
+      <fieldset class="ai-src">
+        <legend>Resume</legend>
+        <label class="small row" style="gap:.4rem"><input type="radio" name="ai-src" value="existing" {% if resume_versions %}checked{% else %}disabled{% endif %}> Use a resume I already have</label>
+        <div data-src="existing" class="stack" style="--gap:.35rem">
+          {% if resume_versions %}
+          <select id="ai-resume" aria-label="Resume version">
+            {% for v in resume_versions %}<option value="{{ v.pk }}">{{ v.resume.title }} — {{ v.label }}</option>{% endfor %}
+          </select>
+          {% else %}
+          <div class="small muted">You have no saved resumes yet.</div>
+          {% endif %}
+        </div>
+        <label class="small row" style="gap:.4rem"><input type="radio" name="ai-src" value="upload" {% if not resume_versions %}checked{% endif %}> Upload a resume file</label>
+        <div data-src="upload" class="stack" style="--gap:.35rem" hidden>
+          <input type="file" id="ai-file" data-url="{% url 'template_resume_upload' %}" accept=".pdf,.docx,.doc,.txt" aria-label="Resume file">
+          <div class="tiny muted" id="ai-upload-status">PDF, DOCX, DOC or TXT. Used for this draft only; it is not saved to your resume studio.</div>
+        </div>
+      </fieldset>
+      <div class="field"><label for="ai-role">Role you are applying for</label>
+        <input type="text" id="ai-role" maxlength="120" placeholder="e.g. Backend Engineer"></div>
       <div class="row" style="gap:.35rem">
-        <button type="button" class="btn primary sm" data-ai-mode="draft">Draft new email</button>
+        <button type="button" class="btn primary sm" data-ai-mode="draft">Draft email</button>
         <button type="button" class="btn sm" data-ai-mode="improve">Improve</button>
         <button type="button" class="btn sm" data-ai-mode="shorten">Shorten</button>
       </div>

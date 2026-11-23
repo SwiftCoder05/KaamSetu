@@ -184,8 +184,39 @@
     const restoreBtn = document.getElementById("ai-restore");
     let draft = null;
     let previous = null;
-    // Enter in the instructions box must not submit (save) the template form.
-    document.getElementById("ai-instr").addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+    const aiRole = document.getElementById("ai-role");
+    const aiResume = document.getElementById("ai-resume");
+    if (aiRole) aiRole.value = roleLabel.value;
+    // Enter in the role box must not submit (save) the template form.
+    if (aiRole) aiRole.addEventListener("keydown", (e) => { if (e.key === "Enter") e.preventDefault(); });
+
+    // Resume source: an existing resume from the studio, or a file uploaded for this draft.
+    const aiSource = () => document.querySelector("input[name=ai-src]:checked")?.value || "existing";
+    const showSource = () => {
+      const picked = aiSource();
+      document.querySelectorAll("[data-src]").forEach((p) => (p.hidden = p.dataset.src !== picked));
+    };
+    document.querySelectorAll("input[name=ai-src]").forEach((r) => r.addEventListener("change", showSource));
+    showSource();
+    const aiFile = document.getElementById("ai-file");
+    const uploadStatus = document.getElementById("ai-upload-status");
+    aiFile?.addEventListener("change", async () => {
+      const file = aiFile.files[0];
+      if (!file) return;
+      uploadStatus.textContent = "Reading your resume…";
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(aiFile.dataset.url, { method: "POST", body: form, credentials: "same-origin", headers: { "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content || "" } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        uploadStatus.textContent = data.error || "That file could not be read.";
+        uploadStatus.className = "tiny bad-text";
+        aiFile.value = "";
+        return;
+      }
+      uploadStatus.textContent = `Using “${data.name}” for this draft.`;
+      uploadStatus.className = "tiny muted";
+    });
 
     aiButtons.forEach((btn) => btn.addEventListener("click", async () => {
       aiButtons.forEach((b) => (b.disabled = true));
@@ -198,9 +229,9 @@
       const { ok, data } = await window.kaam.post(ai.dataset.url, {
         confirm: true,
         mode: btn.dataset.aiMode,
-        job_description: document.getElementById("ai-jd").value,
-        instructions: document.getElementById("ai-instr").value,
-        role_label: roleLabel.value,
+        role_label: (aiRole && aiRole.value.trim()) || roleLabel.value,
+        resume_source: aiSource(),
+        resume_version: aiResume ? aiResume.value : "",
         subject: subject.value,
         body: editor.innerHTML,
       });
@@ -222,36 +253,47 @@
       result.hidden = false;
     }));
 
+    const doRestore = () => {
+      if (!previous) return;
+      subject.value = previous.subject;
+      editor.innerHTML = previous.body;
+      previous = null;
+      markDirty();
+    };
     useBtn.addEventListener("click", () => {
       if (!draft || draft.state === "blocked") return;
       previous = { subject: subject.value, body: editor.innerHTML };
       subject.value = draft.subject;
       editor.innerHTML = draft.body_html;
       markDirty();
+      draft = null;
       result.hidden = true;
-      restoreBtn.hidden = false;
-      document.getElementById("ai-result").hidden = false;
-      document.getElementById("ai-subject").textContent = "Draft inserted into the editor. Review it, then press Save.";
-      document.getElementById("ai-body").replaceChildren();
-      issuesEl.hidden = true;
-      useBtn.hidden = true;
-      window.kaam.toast("Draft inserted. Review it, then press Save.", "ok");
+      // The draft is now in the editor itself, so the panel's job here is done: close it instead of leaving it open.
+      document.querySelector("[data-ai-dock]")?.kaamSetOpen?.(false);
+      const toastEl = window.kaam.toast("Draft inserted. Review it, then press Save.", "ok", 8000);
+      const undo = Object.assign(document.createElement("button"), { type: "button", className: "toast-undo", textContent: "Undo" });
+      undo.addEventListener("click", () => { doRestore(); toastEl.remove(); window.kaam.toast("Your previous text is back.", "ok"); });
+      toastEl.insertBefore(undo, toastEl.lastElementChild);
     });
     document.getElementById("ai-discard").addEventListener("click", () => {
       draft = null;
       result.hidden = true;
     });
     restoreBtn.addEventListener("click", () => {
-      if (!previous) return;
-      subject.value = previous.subject;
-      editor.innerHTML = previous.body;
-      previous = null;
+      doRestore();
       restoreBtn.hidden = true;
       result.hidden = true;
-      markDirty();
       window.kaam.toast("Your previous text is back.", "ok");
     });
   }
+
+  // "Draft from resume" (next to the eye): opens the AI panel on the resume + role fields.
+  document.querySelector("[data-resume-draft]")?.addEventListener("click", () => {
+    const pop = document.getElementById("ai-pop");
+    if (pop && pop.hidden) document.querySelector("[data-ai-open]")?.click();
+    const role = document.getElementById("ai-role");
+    if (role) { if (!role.value) role.value = roleLabel.value; role.focus(); }
+  });
 
   // Preview dialog: opens from the blinking eye, blurs the editor behind it.
   const modal = document.getElementById("pv-modal");

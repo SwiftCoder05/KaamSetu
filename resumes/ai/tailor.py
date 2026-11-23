@@ -9,6 +9,7 @@ Opt-in checks run before any provider is touched.
 
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from pydantic import ValidationError
 
@@ -17,22 +18,25 @@ from ..schema import ResumeData, resume_plain_text
 from .ats import build_keywords, contains, dictionary_terms, score
 from .guard import ModelOutput, vet_tailoring
 from .provider import AiDisabledError, AiOutputError, AiProvider, AiUnavailableError
+from .semantic import condense_jd, select_bullets
+
+MAX_PROMPT_BULLETS = 16  # resumes with more bullets than this are trimmed to the most JD-relevant ones in the prompt
 
 SYSTEM = """You are an expert resume writer who optimises resumes for Applicant Tracking Systems (ATS).
 
 Work in two steps.
 
-STEP 1. Analyse the JOB DESCRIPTION. List its ATS keywords using the JD's exact wording: the job title, hard skills,
-programming languages, frameworks, tools, platforms, methodologies and certifications. Mark each "required" or "preferred".
-Do not list generic words (team, communication, experience).
+STEP 1. Analyse the JOB DESCRIPTION. List at most 6 ATS keywords using the JD's exact wording (job title, hard skills,
+languages, frameworks, tools, platforms, certifications), each "required" or "preferred". The app finds common skills itself,
+so list only the most important or unusual ones. Do not list generic words (team, communication, experience).
 
 STEP 2. Propose edits so the RESUME contains as many of the MISSING keywords as possible, written naturally.
-You MUST return at least: one "headline", one "summary", and a "bullet_rewrite" for every existing bullet that is related to the job.
-Add "bullet_add" items for important missing keywords that no existing bullet can carry.
+Be brief: the whole reply must stay short. Return one "headline", one "summary", at most 4 "bullet_rewrite" items (the bullets
+most related to the job) and at most 2 "bullet_add" items for important missing keywords that no existing bullet can carry.
 - "headline": a headline matching the job title (max 10 words).
 - "summary": rewrite the summary in at most 3 sentences / 60 words, weaving in the most important missing keywords.
-- "bullet_rewrite": rephrase an EXISTING bullet using the JD's wording for the work it already describes. Keep its facts. Max 30 words.
-- "bullet_add": a NEW bullet under an existing job or project, only for important missing keywords that no existing bullet can carry. Max 25 words. At most 4 in total.
+- "bullet_rewrite": rephrase an EXISTING bullet using the JD's wording for the work it already describes. Keep its facts. Max 25 words.
+- "bullet_add": a NEW bullet under an existing job or project, only for important missing keywords that no existing bullet can carry. Max 25 words. 
 
 Rules:
 1. Every suggestion must include at least one missing keyword. Do not touch bullets that have nothing to do with the job.
@@ -48,10 +52,10 @@ Return ONLY a JSON object:
   "job_title": string,
   "keywords": [{"term": string, "category": "title|hard_skill|tool|framework|language|cloud|database|methodology|certification|soft_skill", "importance": "required|preferred"}],
   "suggestions": [
-    {"type": "headline", "proposed": string, "rationale": string},
-    {"type": "summary", "proposed": string, "rationale": string},
-    {"type": "bullet_rewrite", "target": {"section": "experience"|"projects", "entry_index": number, "bullet_index": number}, "proposed": string, "rationale": string},
-    {"type": "bullet_add", "target": {"section": "experience"|"projects", "entry_index": number}, "proposed": string, "rationale": string}
+    {"type": "headline", "proposed": string, "rationale": string (max 10 words)},
+    {"type": "summary", "proposed": string, "rationale": string (max 10 words)},
+    {"type": "bullet_rewrite", "target": {"section": "experience"|"projects", "entry_index": number, "bullet_index": number}, "proposed": string, "rationale": string (max 10 words)},
+    {"type": "bullet_add", "target": {"section": "experience"|"projects", "entry_index": number}, "proposed": string, "rationale": string (max 10 words)}
   ]
 }"""
 
@@ -62,20 +66,28 @@ def model_schema() -> dict:
     schema = ModelOutput.model_json_schema()
     schema["required"] = ["job_title", "keywords", "suggestions"]
     schema["properties"]["suggestions"]["minItems"] = 3
-    schema["properties"]["keywords"]["minItems"] = 5
+    schema["properties"]["suggestions"]["maxItems"] = 8  # output tokens are the slow part on CPU: ~6 tokens/s
+    schema["properties"]["keywords"]["maxItems"] = 6
     return schema
 
 
-def resume_for_prompt(r: ResumeData) -> str:
-    """Resume rendered with explicit indexes so the model can address bullets precisely."""
+def resume_for_prompt(r: ResumeData, keep: set | None = None) -> str:
+    """Resume rendered with explicit indexes so the model can address bullets precisely.
+    `keep` (optional) limits which bullets are shown, as {("experience"|"projects", entry, bullet)}; indexes never shift."""
+    def shown(section, i, bullets):
+        out = [f"  bullet[{j}]: {b}" for j, b in enumerate(bullets) if keep is None or (section, i, j) in keep]
+        if keep is not None and len(out) < len(bullets):
+            out.append(f"  ({len(bullets) - len(out)} less relevant bullets not shown)")
+        return out
+
     lines = [f"Name: {r.basics.name}", f"Headline: {r.basics.headline}", f"Summary: {r.summary}", "Skills:"]
     lines += [f"  - {g.category}: {', '.join(g.items)}" for g in r.skills]
     for i, e in enumerate(r.experience):
         lines.append(f"Experience[{i}]: {e.title} @ {e.company} ({e.start} - {'Present' if e.current else e.end})")
-        lines += [f"  bullet[{j}]: {b}" for j, b in enumerate(e.bullets)]
+        lines += shown("experience", i, e.bullets)
     for i, p in enumerate(r.projects):
         lines.append(f"Project[{i}]: {p.name} [{', '.join(p.tech)}]")
-        lines += [f"  bullet[{j}]: {b}" for j, b in enumerate(p.bullets)]
+        lines += shown("projects", i, p.bullets)
     lines += [f"Education: {e.degree}, {e.school}" for e in r.education]
     lines += [f"Certification: {c.name} ({c.issuer})" for c in r.certifications]
     if r.additional:
@@ -95,7 +107,7 @@ def extract_json(raw: str):
 
 
 def run_tailoring(*, ai_enabled: bool, confirmed: bool, resume: ResumeData, job_description: str,
-                  instructions: str = "", provider: AiProvider | None) -> dict:
+                  instructions: str = "", provider: AiProvider | None, embedder="auto") -> dict:
     if not ai_enabled or not confirmed:
         raise AiDisabledError()
     if provider is None:
@@ -106,13 +118,23 @@ def run_tailoring(*, ai_enabled: bool, confirmed: bool, resume: ResumeData, job_
 
     # Keywords the app can already see, so the model starts from the real gaps.
     known_missing = [k["term"] for k in dictionary_terms(job_description) if not contains(text, k["term"])]
+    # Semantic selection: send the model only the requirement-bearing parts of a long JD and the most relevant
+    # bullets of a big resume. Keywords/score below still use the FULL job description.
+    prompt_jd, jd_stats = condense_jd(job_description, text, embedder=embedder)
+    all_bullets = [((sec, i, j), b) for sec, entries in (("experience", resume.experience), ("projects", resume.projects))
+                   for i, e in enumerate(entries) for j, b in enumerate(e.bullets)]
+    keep, _ = select_bullets(all_bullets, prompt_jd, keep=MAX_PROMPT_BULLETS, embedder=embedder)
     user = (
-        f"<resume>\n{resume_for_prompt(resume)}\n</resume>\n\n"
-        f"<job_description>\n{job_description}\n</job_description>\n\n"
+        f"<resume>\n{resume_for_prompt(resume, keep if len(keep) < len(all_bullets) else None)}\n</resume>\n\n"
+        f"<job_description>\n{prompt_jd}\n</job_description>\n\n"
         f"<already_detected_missing_keywords>\n{', '.join(known_missing) or '(none)'}\n</already_detected_missing_keywords>\n\n"
         f"<extra_instructions>\n{instructions or '(none)'}\n</extra_instructions>"
     )
     schema = model_schema()
+    # Rendering the PDF to count pages takes seconds; do it while the model is busy instead of after.
+    pool = ThreadPoolExecutor(max_workers=1)
+    pages_future = pool.submit(page_count, resume)
+    pool.shutdown(wait=False)
     for attempt in range(2):
         raw = provider.generate_json(
             SYSTEM,
@@ -131,8 +153,9 @@ def run_tailoring(*, ai_enabled: bool, confirmed: bool, resume: ResumeData, job_
             "job_title": parsed.job_title.strip()[:160],
             "keywords": [{**k, "matched": k["term"] in before["matched"]} for k in keywords],
             "score_before": before["score"],
-            "pages_before": page_count(resume),
+            "pages_before": pages_future.result(),
             "suggestions": vet_tailoring(resume, parsed, keywords),
             "model": provider.model,
+            "prompt_stats": jd_stats,
         }
     raise AiOutputError()

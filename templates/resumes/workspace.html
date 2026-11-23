@@ -8,6 +8,7 @@
 {% block content %}
 <h1 class="sr-only">Resume editor: {{ resume.title }}</h1>
 {{ data|json_script:"resume-data" }}
+<div x-data="{ editing: new URLSearchParams(location.search).has('edit') }">
 <div x-data="resumeEditor({
       saveUrl: '{% url 'version_save' v.pk %}',
       tailorUrl: '{% url 'version_tailor' v.pk %}',
@@ -23,16 +24,19 @@
       <strong style="font-family:var(--font-display);font-size:1.25rem">{{ resume.title }}</strong>
     </div>
     <div class="row">
-      <span class="small muted" x-show="dirty">Unsaved changes</span>
+      <span class="small muted" x-show="editing && dirty">Unsaved changes</span>
       <a class="btn sm" href="{% url 'version_export' v.pk 'pdf' %}" @click="warnIfDirty($event)">{% icon 'download' 14 %} PDF</a>
       <a class="btn sm" href="{% url 'version_export' v.pk 'docx' %}" @click="warnIfDirty($event)">{% icon 'download' 14 %} Word</a>
-      <button class="btn sm" type="button" @click="save(true)" x-show="!locked" :disabled="saving">Save as new version</button>
-      <button class="btn primary sm" type="button" @click="save(locked)" :disabled="saving" x-text="locked ? 'Save as new version' : 'Save'"></button>
+      <button class="btn sm" type="button" @click="save(true)" x-show="editing && !locked" :disabled="saving">Save as new version</button>
+      <button class="btn primary sm" type="button" @click="save(locked)" x-show="editing" :disabled="saving" x-text="locked ? 'Save as new version' : 'Save'"></button>
+      <button class="btn sm" type="button" x-show="editing" @click="editing = false">Done</button>
+      <button class="btn primary sm" type="button" x-show="!editing" @click="editing = true">Edit</button>
     </div>
   </div>
 
-  <div class="card flat row between" style="margin-bottom:1rem;padding:.8rem 1rem">
+  <div class="card flat row between" x-show="editing" style="margin-bottom:1rem;padding:.8rem 1rem">
     <form method="get" class="row">
+      <input type="hidden" name="edit" value="1">
       <label for="v" class="small" style="font-weight:600">Version</label>
       <select id="v" name="v" onchange="this.form.submit()" style="width:auto">
         {% for x in versions %}<option value="{{ x.pk }}" {% if x.pk == v.pk %}selected{% endif %}>{{ x.label }} · {{ x.get_source_display }} · {{ x.created_at|date:"d M, H:i" }}</option>{% endfor %}
@@ -50,15 +54,15 @@
     </div>
   </div>
 
-  {% if v.locked %}<div class="alert info small" style="margin-bottom:1rem"><div>This is your imported original. It stays untouched; saving creates a new version you can edit freely.</div></div>{% endif %}
+  {% if v.locked %}<div class="alert info small" x-show="editing" style="margin-bottom:1rem"><div>This is your imported original. It stays untouched; saving creates a new version you can edit freely.</div></div>{% endif %}
   {% if resume.import_notes and v.source == 'import' %}
-    <details class="alert warn small" style="margin-bottom:1rem;display:block"><summary style="cursor:pointer;font-weight:600">Import notes ({{ resume.import_notes|length }})</summary>
+    <details class="alert warn small" x-show="editing" style="margin-bottom:1rem;display:block"><summary style="cursor:pointer;font-weight:600">Import notes ({{ resume.import_notes|length }})</summary>
       <ul style="margin:.5rem 0 0;padding-left:1.1rem">{% for n in resume.import_notes %}<li>{{ n }}</li>{% endfor %}</ul>
     </details>
   {% endif %}
 
-  <div class="ws-layout">
-    <div>
+  <div class="ws-layout" :style="!editing && 'display:block;max-width:820px;margin:0 auto'">
+    <div x-show="editing">
       <div class="tabs" role="tablist">
         <button type="button" role="tab" :class="tab === 'edit' && 'on'" @click="tab = 'edit'">Edit content</button>
         <button type="button" role="tab" :class="tab === 'ai' && 'on'" @click="tab = 'ai'">{% icon 'sparkles' 14 %} Tailor to a job</button>
@@ -302,7 +306,7 @@
                     <strong>Final resume</strong>
                     <div class="tiny muted" x-text="pendingCount() ? pendingCount() + ' change(s) still need Accept or Decline.' : (acceptedCount() + ' accepted · ATS ' + ai.live.score + '% · ' + (ai.live.pages <= 1 ? 'one page' : ai.live.pages + ' pages'))"></div>
                   </div>
-                  <button type="button" class="btn primary" @click="apply()" :disabled="ai.applying || pendingCount() > 0 || !acceptedCount() || ai.live.pages > 1">{% icon 'check' 14 %} <span x-text="ai.applying ? 'Creating…' : 'Create final resume'"></span></button>
+                  <button type="button" class="btn primary" @click="apply()" :disabled="ai.applying || pendingCount() > 0 || ai.live.pages > 1">{% icon 'check' 14 %} <span x-text="ai.applying ? 'Creating…' : 'Create final resume'"></span></button>
                 </div>
                 <p class="tiny muted">Saved as a new version. This version stays exactly as it is.</p>
               </section>
@@ -313,9 +317,9 @@
     </div>
 
     {# ───── LIVE PREVIEW ───── #}
-    <div style="position:sticky;top:1rem" x-data="{ view: '{% if show_original_first %}original{% else %}edited{% endif %}' }">
+    <div style="position:sticky;top:1rem" x-data="{ view: '{% if show_original_first %}original{% else %}edited{% endif %}' }" x-effect="if (!editing) view = 'edited'">
       {% if original_pages or original_html %}
-      <div class="seg" role="tablist" aria-label="Preview">
+      <div class="seg" x-show="editing" role="tablist" aria-label="Preview">
         <button type="button" role="tab" :class="view === 'original' && 'on'" :aria-selected="view === 'original'" @click="view = 'original'">{% icon 'file' 14 %} Original file</button>
         <button type="button" role="tab" :class="view === 'edited' && 'on'" :aria-selected="view === 'edited'" @click="view = 'edited'">{% icon 'eye' 14 %} Edited version</button>
       </div>
@@ -331,7 +335,7 @@
       </div>
       {% endif %}
       <div x-show="view === 'edited'">
-      <div class="row between" style="margin-bottom:.5rem"><span class="label">{% icon 'eye' 14 %} Live preview of your edits</span><span class="tiny muted">PDF/Word export uses this clean layout</span></div>
+      <div class="row between" x-show="editing" style="margin-bottom:.5rem"><span class="label">{% icon 'eye' 14 %} Live preview of your edits</span><span class="tiny muted">PDF/Word export uses this clean layout</span></div>
       <div class="resume-sheet" aria-label="Resume preview">
         <h1 x-text="d.basics.name || 'Your Name'"></h1>
         <div class="headline" x-show="d.basics.headline" x-text="d.basics.headline"></div>
@@ -363,6 +367,7 @@
       </div>
     </div>
   </div>
+</div>
 </div>
 {{ labels|json_script:"section-labels" }}
 {% endblock %}

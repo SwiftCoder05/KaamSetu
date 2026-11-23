@@ -14,6 +14,7 @@ urlpatterns = [
     path("contacts/<int:pk>/delete/", con.contact_delete, name="contact_delete"),
     path("templates/", tpl.template_gallery, name="template_gallery"),
     path("templates/new/", tpl.template_create, name="template_create"),
+    path("templates/resume-upload/", tpl.template_resume_upload, name="template_resume_upload"),
     path("templates/<int:pk>/", tpl.template_edit, name="template_edit"),
     path("templates/<int:pk>/preview/", tpl.template_preview, name="template_preview"),
     path("templates/<int:pk>/ai/", tpl.template_ai, name="template_ai"),

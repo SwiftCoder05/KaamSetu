@@ -87,19 +87,25 @@
     });
   }
 
-  // Floating AI helper: the robot offers help; the panel opens only on click.
+  // Floating AI helper: the robot offers help; the panel opens only on click, over a blurred backdrop.
   document.querySelectorAll("[data-ai-dock]").forEach((dock) => {
     document.body.appendChild(dock); // top level, so it layers correctly with dialogs
     const pop = dock.querySelector(".ai-pop");
     const fab = dock.querySelector("[data-ai-open]");
+    const backdrop = Object.assign(document.createElement("div"), { className: "ai-pop-backdrop" });
+    backdrop.hidden = true;
+    document.body.appendChild(backdrop);
     const setOpen = (open) => {
       pop.hidden = !open;
+      backdrop.hidden = !open;
       fab.setAttribute("aria-expanded", String(open));
       dock.classList.toggle("open", open);
       if (open) { dock.classList.add("seen"); pop.querySelector("textarea, input, button:not([data-ai-close])")?.focus(); }
     };
+    dock.kaamSetOpen = setOpen; // so other scripts (e.g. the template editor) can close this panel after it is done
     fab.addEventListener("click", () => setOpen(pop.hidden));
     dock.querySelector("[data-ai-close]")?.addEventListener("click", () => setOpen(false));
+    backdrop.addEventListener("click", () => setOpen(false));
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !pop.hidden) setOpen(false); });
   });
 })();

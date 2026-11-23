@@ -110,14 +110,28 @@ def parse_resume(data) -> ResumeData:
     return ResumeData.model_validate(data or {})
 
 
+def resume_links(r: ResumeData) -> list[tuple[str, str]]:
+    """(label, url) pairs for the AI email writer's deterministic signature block: profile links first, then any project links."""
+    out = [(link.label or "Link", link.url) for link in r.basics.links if link.url]
+    for p in r.projects:
+        if p.url:
+            out.append((p.name or "Project", p.url))
+    return out
+
+
 def resume_plain_text(r: ResumeData) -> str:
     parts = [r.basics.name, r.basics.headline, r.summary]
+    for link in r.basics.links:
+        if link.url:
+            parts.append(f"{link.label or 'Link'}: {link.url}")
     for s in r.skills:
         parts += [s.category, *s.items]
     for e in r.experience:
         parts += [e.company, e.title, e.location, *e.bullets]
     for p in r.projects:
         parts += [p.name, *p.tech, *p.bullets]
+        if p.url:
+            parts.append(f"{p.name or 'Project'} link: {p.url}")
     for e in r.education:
         parts += [e.school, e.degree, e.details]
     for c in r.certifications:

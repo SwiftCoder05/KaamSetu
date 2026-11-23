@@ -6,6 +6,7 @@ contains: required keywords count 2, preferred ones count 1.
 """
 
 import re
+from functools import lru_cache
 
 # Common tech/role keywords, found in the JD even if the model misses them. (term, category)
 SKILL_DICTIONARY = [
@@ -57,6 +58,7 @@ def norm(text: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
+@lru_cache(maxsize=2048)
 def _pattern(term: str) -> re.Pattern:
     escaped = re.escape(norm(term))
     return re.compile(r"(?<![a-z0-9+#])" + escaped + r"(?:s|es)?(?![a-z0-9+#])")

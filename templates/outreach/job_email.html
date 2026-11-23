@@ -3,7 +3,7 @@
 {% block title %}Job application email{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><div class="eyebrow">Tech job hunt</div><h1>Job application email</h1>
+  <div><div class="eyebrow">{{ request.user.profile.sender_name }}'s job hunt</div><h1>Job application email</h1>
     <p>One company, one role. The AI reads the job description, finds your strongest matching experience in the selected resume and writes a draft. Every claim is checked against your resume. Nothing is sent or saved: you review, edit and copy it.</p></div>
 </div>
 

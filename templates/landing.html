@@ -1,46 +1,173 @@
 {% extends "base.html" %}
-{% load kaam %}
+{% load kaam static %}
 {% block title %}Job outreach, done honestly{% endblock %}
-{% block body_class %}glow{% endblock %}
+{% block body_class %}lp{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% vstatic 'css/landing.css' %}">{% endblock %}
 {% block body %}
-<header class="landing-nav">
+<header class="lp-nav">
   <a class="brand" href="/"><span class="brand-mark">K</span><span class="brand-name">KaamSetu</span></a>
-  <div class="row">
-    <a class="btn ghost" href="{% url 'account_login' %}">Sign in</a>
-    <a class="btn primary" href="{% url 'account_signup' %}">Create account</a>
+  <nav class="lp-links" aria-label="Sections">
+    <a href="#import">Import</a>
+    <a href="#tailor">Resume AI</a>
+    <a href="#send">Send</a>
+    <a href="#how-it-works">How it works</a>
+  </nav>
+  <div class="lp-nav-cta">
+    <a class="lp-login" href="{% url 'account_login' %}">Sign in</a>
+    <a class="lp-btn dark sm" href="{% url 'account_signup' %}">Sign up free</a>
   </div>
 </header>
+
 <main>
-  <section class="hero">
-    <div>
-      <div class="badge warn" style="margin-bottom:1rem">For job seekers · creators soon</div>
-      <h1>Reach recruiters <em>personally</em>, at scale, without losing your voice.</h1>
-      <p class="lede">Import recruiter emails from anywhere, write warm templates, attach the right resume, and send from your own Gmail with clear limits and an honest status for every message.</p>
-      <div class="row">
-        <a class="btn primary lg" href="{% url 'account_signup' %}">Start free {% icon 'arrow' 16 %}</a>
-        <a class="btn lg" href="{% url 'account_login' %}">I have an account</a>
+  {# ───── HERO ───── #}
+  <section class="lp-hero">
+    <div class="lp-hero-copy">
+      <h1>Turn every recruiter email into a <span class="lp-mark">conversation</span>.</h1>
+      <p class="lp-lede">One honest platform for your job hunt. Import recruiter contacts, write warm templates, tailor your resume to each job with careful AI, and send from your own Gmail with clear limits and a real status for every message.</p>
+      <div class="lp-cta">
+        <a class="lp-btn dark lg" href="{% url 'account_signup' %}">Sign up free</a>
+        <a class="lp-btn ghost lg" href="#how-it-works">See how it works</a>
+      </div>
+      <div class="lp-proof">
+        <span class="lp-live"></span>
+        {% if user_count %}<span><strong>{{ user_count }}</strong> job seeker{{ user_count|pluralize }} already use{{ user_count|pluralize:"s," }} KaamSetu</span>{% else %}<span>Free to start. No card needed.</span>{% endif %}
       </div>
     </div>
-    <div class="mock grain" aria-hidden="true">
-      <div class="row between"><strong>Campaign · Backend roles</strong><span class="badge ok dot">sending</span></div>
-      <div class="progress"><span class="p-ok" style="width:62%"></span><span class="p-bad" style="width:4%"></span></div>
-      <div class="card flat" style="padding:1rem">
-        <div class="small muted">To: priya@acmelabs.com</div>
-        <div style="font-weight:600;margin:.3rem 0 .6rem">Software Engineer application — Asha Rao</div>
-        <div class="stack" style="--gap:.45rem">
-          <div class="line" style="width:92%"></div><div class="line" style="width:80%"></div><div class="line" style="width:86%"></div><div class="line" style="width:40%"></div>
-        </div>
-        <div class="row" style="margin-top:.8rem"><span class="badge info">{% icon 'file' 12 %} Asha_Rao.pdf</span></div>
+
+    <div class="lp-collage" aria-hidden="true">
+      <div class="lp-card c-template">
+        <div class="lp-card-head"><span class="lp-dot-ic">{% icon 'mail' 14 %}</span><div><strong>Backend Engineer</strong><small>Template editor</small></div><span class="lp-btn dark xs">{% icon 'check' 12 %} Save</span></div>
+        <div class="lp-subject">Application for <i class="lp-ph">{% verbatim %}{{role}}{% endverbatim %}</i> — Asha Rao</div>
+        <div class="lp-tools"><b>B</b><i>I</i><u>U</u><span></span>{% icon 'list' 13 %}{% icon 'link' 13 %}</div>
+        <p>Hi <i class="lp-ph">{% verbatim %}{{first_name|there}}{% endverbatim %}</i>, I'm Asha, a backend engineer who likes turning slow, tangled services into fast, dependable ones…</p>
       </div>
-      <div class="row small muted">{% icon 'shield' 14 %} 24 of 40 daily emails used</div>
+      <div class="lp-card c-ats">
+        <div class="lp-card-head"><span class="lp-dot-ic">{% icon 'sparkles' 14 %}</span><div><strong>Tailored to the job</strong><small>ATS keyword match</small></div></div>
+        <div class="lp-score"><div><small>Now</small><b>47%</b></div><span>{% icon 'arrow' 18 %}</span><div><small>With your changes</small><b class="ok">94%</b></div></div>
+        <div class="lp-bar"><i style="width:94%"></i></div>
+        <div class="lp-chips"><span class="g">Python</span><span class="g">APIs</span><span class="b">agents</span><span class="b">ranking</span><span class="r">Docker</span></div>
+      </div>
+      <div class="lp-card c-campaign">
+        <div class="lp-card-head"><span class="lp-dot-ic">{% icon 'send' 14 %}</span><div><strong>Campaign · Backend roles</strong><small>Sending from your Gmail</small></div><span class="lp-pill">sending</span></div>
+        <div class="lp-progress"><i class="ok" style="width:62%"></i><i class="bad" style="width:4%"></i></div>
+        <div class="lp-limit">{% icon 'shield' 13 %} 24 of 40 daily emails used</div>
+      </div>
     </div>
   </section>
-  <section class="features">
-    <div class="grid grid-3">
-      <div class="card feature"><div class="icon">{% icon 'upload' %}</div><h3>Import from anything</h3><p class="muted small" style="margin-top:.4rem">Paste a list, or upload CSV, Excel, Word, PDF or a screenshot. Review every address before it's saved.</p></div>
-      <div class="card feature"><div class="icon">{% icon 'mail' %}</div><h3>Templates that sound like you</h3><p class="muted small" style="margin-top:.4rem">Role-specific starters with a document-style editor, live preview and smart placeholders.</p></div>
-      <div class="card feature"><div class="icon">{% icon 'sparkles' %}</div><h3>Careful AI, only if you ask</h3><p class="muted small" style="margin-top:.4rem">Tailor your resume to a job with an open model. Invented numbers or skills are blocked.</p></div>
+
+  {# ───── TRUST STRIP ───── #}
+  <section class="lp-strip" aria-label="What you can import">
+    <p>Bring recruiter contacts from wherever they live{% if user_count %}. Join {{ user_count }} job seeker{{ user_count|pluralize }} on KaamSetu{% endif %}.</p>
+    <ul>
+      <li>{% icon 'file' 16 %} CSV</li><li>{% icon 'file' 16 %} Excel</li><li>{% icon 'file' 16 %} Word</li><li>{% icon 'file' 16 %} PDF</li><li>{% icon 'upload' 16 %} Screenshots</li><li>{% icon 'mail' 16 %} Your Gmail</li>
+    </ul>
+  </section>
+
+  {# ───── FEATURE 1: IMPORT ───── #}
+  <section class="lp-split reveal" id="import">
+    <div class="lp-visual">
+      <div class="lp-card wide">
+        <div class="lp-card-head"><span class="lp-dot-ic">{% icon 'users' 14 %}</span><div><strong>Review before saving</strong><small>3 addresses found in your paste</small></div><span class="lp-btn dark xs">Save contacts</span></div>
+        <ul class="lp-rows">
+          <li><span class="av">P</span><div><b>Priya Nair</b><small>priya@acmelabs.com</small></div><span class="lp-pill ok">valid</span></li>
+          <li><span class="av a2">R</span><div><b>Rahul Mehta</b><small>rahul@northwind.io</small></div><span class="lp-pill ok">valid</span></li>
+          <li><span class="av a3">S</span><div><b>Sana Qureshi</b><small>sana@brightcore.dev</small></div><span class="lp-pill warn">already saved</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="lp-text">
+      <span class="lp-eyebrow">Import &amp; organise</span>
+      <h2>Bring your recruiter list from anywhere</h2>
+      <p>Paste a list, or upload a CSV, Excel, Word, PDF or even a screenshot. KaamSetu finds the addresses, flags duplicates and asks you to review every one before it is saved.</p>
+      <a class="lp-more" href="{% url 'account_signup' %}">Start importing {% icon 'arrow' 16 %}</a>
+    </div>
+  </section>
+
+  {# ───── FEATURE 2: TAILOR ───── #}
+  <section class="lp-split reverse tint reveal" id="tailor">
+    <div class="lp-text">
+      <span class="lp-eyebrow">Resume AI, only if you ask</span>
+      <h2>A resume that matches each job, without inventing a thing</h2>
+      <p>Paste a job description and see your ATS match. Accept or decline every suggested skill and rewrite one by one. Invented numbers or skills are blocked, and your original is never touched.</p>
+      <a class="lp-more" href="{% url 'account_signup' %}">Tailor my resume {% icon 'arrow' 16 %}</a>
+    </div>
+    <div class="lp-visual">
+      <div class="lp-card wide">
+        <div class="lp-score big"><div><small>ATS match now</small><b>47%</b></div><span>{% icon 'arrow' 20 %}</span><div><small>With your accepted changes</small><b class="ok">94%</b></div></div>
+        <div class="lp-bar"><i style="width:94%"></i></div>
+        <div class="lp-chips"><span class="g">LLM</span><span class="g">retrieval</span><span class="b">agents</span><span class="b">tool use</span><span class="b">structured outputs</span><span class="r">Docker</span></div>
+        <div class="lp-skillrow"><span class="sk acc">agents <em>✓</em><em>✕</em></span><span class="sk acc">tool use <em>✓</em><em>✕</em></span><span class="sk">Docker <em>✓</em><em>✕</em></span></div>
+      </div>
+    </div>
+  </section>
+
+  {# ───── FEATURE 3: SEND ───── #}
+  <section class="lp-split reveal" id="send">
+    <div class="lp-visual">
+      <div class="lp-card wide">
+        <div class="lp-card-head"><span class="lp-dot-ic">{% icon 'send' 14 %}</span><div><strong>Campaign · Backend roles</strong><small>Nothing goes out until you confirm</small></div><span class="lp-pill">sending</span></div>
+        <div class="lp-progress"><i class="ok" style="width:62%"></i><i class="bad" style="width:4%"></i></div>
+        <div class="lp-mail">
+          <small>To: priya@acmelabs.com</small>
+          <b>Software Engineer application — Asha Rao</b>
+          <div class="ln" style="width:92%"></div><div class="ln" style="width:80%"></div><div class="ln" style="width:40%"></div>
+          <span class="lp-pill info">{% icon 'file' 12 %} Asha_Rao.pdf</span>
+        </div>
+        <div class="lp-limit">{% icon 'shield' 13 %} 24 of 40 daily emails used</div>
+      </div>
+    </div>
+    <div class="lp-text">
+      <span class="lp-eyebrow">Send honestly</span>
+      <h2>Send from your own Gmail, with limits you can trust</h2>
+      <p>Every recipient gets their own personal email and the right resume attached. Daily limits protect your sender reputation, and each message shows an honest status: accepted, failed or queued.</p>
+      <a class="lp-more" href="{% url 'account_signup' %}">Sign up free {% icon 'arrow' 16 %}</a>
+    </div>
+  </section>
+
+  {# ───── WALKTHROUGH ───── #}
+  <section class="walkthrough" id="how-it-works">
+    <div class="walkthrough-head">
+      <span class="lp-eyebrow">See it in action</span>
+      <h2>How KaamSetu works, step by step</h2>
+      <p class="lp-lede" style="margin:.6rem 0 0">Real screens from the actual product, not mockups.</p>
+    </div>
+    <div class="walkthrough-body">
+      <div class="wt-steps" role="tablist" aria-label="Product walkthrough steps">
+        {% for s in walkthrough %}
+        <button type="button" class="wt-step{% if forloop.first %} active{% endif %}" data-img="{% static s.img %}" role="tab" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+          <span class="wt-num">{{ forloop.counter }}</span>
+          <span><strong>{{ s.title }}</strong><br><span class="small muted">{{ s.text }}</span></span>
+        </button>
+        {% endfor %}
+      </div>
+      <div class="wt-frame">
+        <div class="wt-chrome"><span></span><span></span><span></span></div>
+        <img id="wt-img" src="{% static walkthrough.0.img %}" alt="KaamSetu product screenshot">
+      </div>
+    </div>
+  </section>
+
+  {# ───── FINAL CTA ───── #}
+  <section class="lp-final">
+    <h2>Ready to reach recruiters personally?</h2>
+    <p>Set up in minutes. Stay in control of every email and every resume change.</p>
+    <div class="lp-cta center">
+      <a class="lp-btn light lg" href="{% url 'account_signup' %}">Sign up free</a>
+      <a class="lp-btn outline-light lg" href="{% url 'account_login' %}">I have an account</a>
     </div>
   </section>
 </main>
+<footer class="lp-footer">
+  <a class="brand" href="/"><span class="brand-mark">K</span><span class="brand-name">KaamSetu</span></a>
+  <span>Job outreach, done honestly.</span>
+</footer>
 {% endblock %}
+{% block scripts %}<script src="{% vstatic 'js/walkthrough.js' %}"></script>
+<script>
+(function () {
+  var els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) { els.forEach(function (e) { e.classList.add('in'); }); return; }
+  var io = new IntersectionObserver(function (en) { en.forEach(function (x) { if (x.isIntersecting) { x.target.classList.add('in'); io.unobserve(x.target); } }); }, { threshold: .15 });
+  els.forEach(function (e) { io.observe(e); });
+})();
+</script>{% endblock %}

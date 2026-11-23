@@ -72,10 +72,18 @@ def parse_resume_text(text: str) -> tuple[ResumeData, list[str]]:
     if m := PHONE.search(header_text):
         data.basics.phone = _clip(m.group(1).strip(), 40)
     links: dict[str, Link] = {}
+    # LinkedIn/GitHub are profile-level, so look across the whole document (a hyperlinked word can land anywhere,
+    # not just the header); a plain "Website" link is only trusted in the header to avoid grabbing a project's own URL.
+    for m in URL_RE.finditer(EMAIL.sub(" ", text)):
+        url = re.sub(r"[.,;]+$", "", m.group(1))
+        low = url.lower()
+        if "linkedin" in low or "github" in low:
+            links.setdefault(low, Link(label="LinkedIn" if "linkedin" in low else "GitHub", url=_clip(url, 300)))
     for m in URL_RE.finditer(EMAIL.sub(" ", header_text)):
         url = re.sub(r"[.,;]+$", "", m.group(1))
-        label = "LinkedIn" if "linkedin" in url.lower() else "GitHub" if "github" in url.lower() else "Website"
-        links.setdefault(url.lower(), Link(label=label, url=_clip(url, 300)))
+        low = url.lower()
+        if "linkedin" not in low and "github" not in low:
+            links.setdefault(low, Link(label="Website", url=_clip(url, 300)))
     data.basics.links = list(links.values())[:6]
     headline = next(
         (ln for ln in header_lines if ln.strip() != (name or "").strip() and not EMAIL.search(ln) and not PHONE.search(ln) and len(ln.strip()) < 100),
@@ -133,8 +141,11 @@ def parse_resume_text(text: str) -> tuple[ResumeData, list[str]]:
                     )
                 elif key == "projects" and len(data.projects) < 30:
                     tech = [t.strip() for p in parts[1:] for t in re.split(r"[,;]", p) if t.strip()]
+                    url_m = URL_RE.search(EMAIL.sub(" ", " ".join(header + bullets)))
+                    url = re.sub(r"[.,;]+$", "", url_m.group(1)) if url_m else ""
                     data.projects.append(
-                        Project(name=_clip(parts[0] if parts else "", 120), tech=[_clip(t, 60) for t in tech[:30]], bullets=bl[:15])
+                        Project(name=_clip(parts[0] if parts else "", 120), url=_clip(url, 300),
+                                tech=[_clip(t, 60) for t in tech[:30]], bullets=bl[:15])
                     )
                 header, bullets = [], []
 
