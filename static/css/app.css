@@ -34,7 +34,7 @@ p { margin: 0; }
 a { color: var(--indigo); }
 img { max-width: 100%; }
 :focus-visible { outline: 2px solid var(--saffron); outline-offset: 2px; border-radius: 6px; }
-::selection { background: var(--saffron-soft); }
+::selection { background: var(--indigo); color: #fff; }
 code { background: var(--sand); border-radius: 4px; padding: .05rem .3rem; font-size: .85em; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 .muted { color: var(--muted); }

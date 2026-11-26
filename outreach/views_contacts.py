@@ -1,8 +1,11 @@
+from io import BytesIO
+
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import HttpResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -36,16 +39,87 @@ class ContactForm(forms.ModelForm):
         return email
 
 
-@login_required
-def contact_list(request):
+def _filtered_contacts(request):
     qs = Contact.objects.filter(owner=request.user)
     q = request.GET.get("q", "").strip()
     if q:
         qs = qs.filter(Q(email__icontains=q) | Q(name__icontains=q) | Q(company__icontains=q) | Q(role_title__icontains=q))
     if request.GET.get("filter") == "dnc":
         qs = qs.filter(do_not_contact=True)
+    return qs.order_by("email")
+
+
+@login_required
+def contact_list(request):
+    qs = _filtered_contacts(request)
+    q = request.GET.get("q", "").strip()
     page = Paginator(qs, 50).get_page(request.GET.get("page"))
     return render(request, "outreach/contacts.html", {"page": page, "q": q, "total": Contact.objects.filter(owner=request.user).count()})
+
+
+@login_required
+def contact_emails(request):
+    """Plain-text list of every email matching the current search/filter, for 'copy all'."""
+    emails = _filtered_contacts(request).values_list("email", flat=True)
+    return HttpResponse("\n".join(emails), content_type="text/plain; charset=utf-8")
+
+
+@login_required
+def contact_export(request):
+    """All stored contacts matching the current search/filter, downloadable as .docx, .txt or .xlsx."""
+    fmt = request.GET.get("fmt", "docx")
+    contacts = list(_filtered_contacts(request))
+
+    if fmt == "txt":
+        body = "\n".join(c.email for c in contacts)
+        response = HttpResponse(body, content_type="text/plain; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="contacts.txt"'
+        return response
+
+    if fmt == "xlsx":
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Contacts"
+        ws.append(["Email", "Name", "Company", "Role"])
+        for c in contacts:
+            ws.append([c.email, c.name, c.company, c.role_title])
+        for row in ws.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str):
+                    cell.data_type = "s"  # imported text must never be evaluated as a formula
+        buf = BytesIO()
+        wb.save(buf)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = 'attachment; filename="contacts.xlsx"'
+        return response
+
+    if fmt == "docx":
+        from docx import Document
+
+        doc = Document()
+        doc.add_heading("Contacts", level=1)
+        table = doc.add_table(rows=1, cols=4)
+        table.style = "Light Grid Accent 1"
+        hdr = table.rows[0].cells
+        hdr[0].text, hdr[1].text, hdr[2].text, hdr[3].text = "Email", "Name", "Company", "Role"
+        for c in contacts:
+            row = table.add_row().cells
+            row[0].text, row[1].text, row[2].text, row[3].text = c.email, c.name or "", c.company or "", c.role_title or ""
+        buf = BytesIO()
+        doc.save(buf)
+        response = HttpResponse(
+            buf.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        response["Content-Disposition"] = 'attachment; filename="contacts.docx"'
+        return response
+
+    return HttpResponseBadRequest("Unknown export format.")
 
 
 @login_required

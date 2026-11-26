@@ -20,6 +20,11 @@
     <button class="btn">Search</button>
     {% if q or request.GET.filter %}<a class="btn ghost" href="{% url 'contact_list' %}">{% icon 'x' 14 %} Clear</a>{% endif %}
     <a class="filter-pill {% if request.GET.filter == 'dnc' %}on{% endif %}" href="?filter=dnc">{% icon 'shield' 14 %} Do-not-contact only</a>
+    <span class="grow"></span>
+    <button type="button" class="btn ghost" id="copy-emails" data-emails-url="{% url 'contact_emails' %}?{{ request.GET.urlencode }}">{% icon 'copy' 14 %} Copy all emails</button>
+    <a class="btn ghost" href="{% url 'contact_export' %}?{{ request.GET.urlencode }}&fmt=txt">{% icon 'download' 14 %} .txt</a>
+    <a class="btn ghost" href="{% url 'contact_export' %}?{{ request.GET.urlencode }}&fmt=xlsx">{% icon 'download' 14 %} Excel</a>
+    <a class="btn ghost" href="{% url 'contact_export' %}?{{ request.GET.urlencode }}&fmt=docx">{% icon 'download' 14 %} Word</a>
   </form>
 
   <form method="post" action="{% url 'contact_bulk' %}" id="bulk">{% csrf_token %}
@@ -64,4 +69,21 @@
   </div>
   {% endif %}
 {% endif %}
+<script>
+(() => {
+  const btn = document.getElementById("copy-emails");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    try {
+      const res = await fetch(btn.dataset.emailsUrl);
+      const text = await res.text();
+      if (!text.trim()) { window.kaam.toast("No emails to copy.", "warn", 2500); return; }
+      await navigator.clipboard.writeText(text);
+      window.kaam.toast(`Copied ${text.trim().split("\n").length} email(s).`, "ok", 2500);
+    } catch {
+      window.kaam.toast("Couldn't copy. Try again.", "warn", 3000);
+    }
+  });
+})();
+</script>
 {% endblock %}
