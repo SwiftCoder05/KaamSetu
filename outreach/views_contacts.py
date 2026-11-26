@@ -66,15 +66,9 @@ def contact_emails(request):
 
 @login_required
 def contact_export(request):
-    """All stored contacts matching the current search/filter, downloadable as .docx, .txt or .xlsx."""
-    fmt = request.GET.get("fmt", "docx")
+    """All stored contacts matching the current search/filter, downloadable as .xlsx."""
+    fmt = request.GET.get("fmt", "xlsx")
     contacts = list(_filtered_contacts(request))
-
-    if fmt == "txt":
-        body = "\n".join(c.email for c in contacts)
-        response = HttpResponse(body, content_type="text/plain; charset=utf-8")
-        response["Content-Disposition"] = 'attachment; filename="contacts.txt"'
-        return response
 
     if fmt == "xlsx":
         from openpyxl import Workbook
@@ -96,27 +90,6 @@ def contact_export(request):
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
         response["Content-Disposition"] = 'attachment; filename="contacts.xlsx"'
-        return response
-
-    if fmt == "docx":
-        from docx import Document
-
-        doc = Document()
-        doc.add_heading("Contacts", level=1)
-        table = doc.add_table(rows=1, cols=4)
-        table.style = "Light Grid Accent 1"
-        hdr = table.rows[0].cells
-        hdr[0].text, hdr[1].text, hdr[2].text, hdr[3].text = "Email", "Name", "Company", "Role"
-        for c in contacts:
-            row = table.add_row().cells
-            row[0].text, row[1].text, row[2].text, row[3].text = c.email, c.name or "", c.company or "", c.role_title or ""
-        buf = BytesIO()
-        doc.save(buf)
-        response = HttpResponse(
-            buf.getvalue(),
-            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-        response["Content-Disposition"] = 'attachment; filename="contacts.docx"'
         return response
 
     return HttpResponseBadRequest("Unknown export format.")
