@@ -101,6 +101,23 @@ body.lp { background: var(--paper); font-family: var(--font-sans); }
   .lp-collage .lp-card { position: static; width: auto; transform: none; animation: none; }
 }
 
+.lp-kicker { font-weight: 700; color: var(--indigo); letter-spacing: .02em; margin: 0 0 .8rem; }
+.lp-cta { margin-bottom: 0; }
+.lp-hero .lp-lede { margin-bottom: 1.6rem; }
+
+/* demo video */
+.lp-demo { padding: clamp(2.5rem, 5vw, 4rem) clamp(1rem, 5vw, 4rem); text-align: center; border-bottom: 1px solid var(--line); }
+.lp-demo-head h2 { font-size: clamp(1.7rem, 3.6vw, 2.6rem); line-height: 1.1; }
+.lp-demo-head p { max-width: 62ch; margin: 1rem auto 0; font-size: 1.1rem; line-height: 1.6; color: #3a342b; }
+.lp-demo-head b { color: var(--ink); }
+.lp-demo-frame { max-width: 960px; margin: 2rem auto 0; border-radius: 22px; overflow: hidden; background: #1d1a16; box-shadow: 0 30px 60px -28px rgb(29 26 22 / .55), 0 0 0 1px var(--line); aspect-ratio: 16 / 9; }
+.lp-demo-frame video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lp-demo-steps { list-style: none; margin: 1.6rem auto 0; padding: 0; max-width: 960px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: left; }
+.lp-demo-steps li { background: var(--card, #fffefb); border: 1px solid var(--line); border-radius: 16px; padding: 1rem 1.2rem; display: grid; gap: .25rem; }
+.lp-demo-steps b { color: var(--indigo); }
+.lp-demo-steps span { color: #3a342b; font-size: .95rem; }
+@media (max-width: 720px) { .lp-demo-steps { grid-template-columns: 1fr; } }
+
 /* trust strip */
 .lp-strip { display: flex; align-items: center; gap: 2rem; padding: 1.6rem clamp(1rem, 5vw, 4rem); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .lp-strip p { max-width: 34ch; font-weight: 500; color: var(--ink); }

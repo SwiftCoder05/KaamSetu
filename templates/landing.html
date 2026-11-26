@@ -7,6 +7,7 @@
 <header class="lp-nav">
   <a class="brand" href="/"><img class="brand-logo" src="{% static 'img/logo.png' %}" alt="KaamSetu: step into new opportunities" width="150" height="80"></a>
   <nav class="lp-links" aria-label="Sections">
+    <a href="#demo">Watch demo</a>
     <a href="#import">Import</a>
     <a href="#tailor">Resume AI</a>
     <a href="#send">Send</a>
@@ -22,8 +23,10 @@
   {# ───── HERO ───── #}
   <section class="lp-hero">
     <div class="lp-hero-copy">
+      <p class="lp-kicker">Job outreach tool for job seekers</p>
       <h1>Turn every recruiter email into a <span class="lp-mark">conversation</span>.</h1>
-      <p class="lp-lede">One honest platform for your job hunt. Import recruiter contacts, write warm templates, tailor your resume to each job with careful AI, and send from your own Gmail with clear limits and a real status for every message.</p>
+      <p class="lp-lede">Import recruiter contacts, tailor your resume to each job, and send from your own Gmail with a real status for every message.</p>
+      <div class="lp-cta"><a class="lp-btn dark lg" href="{% url 'account_signup' %}">Sign up free</a><a class="lp-btn ghost lg" href="#demo">Watch the demo</a></div>
       <div class="lp-proof">
         <span class="lp-online" id="live-online" data-url="{% url 'live_users' %}" {% if not live_count %}hidden{% endif %} aria-live="polite"><span class="lp-live"></span><strong id="live-count">{{ live_count }}</strong> <span id="live-label">online now</span></span>
         <span class="lp-live" id="live-dot-fallback" {% if live_count %}hidden{% endif %}></span>
@@ -51,6 +54,25 @@
         <div class="lp-limit">{% icon 'shield' 13 %} 24 of 40 daily emails used</div>
       </div>
     </div>
+  </section>
+
+  {# ───── DEMO VIDEO ───── #}
+  <section class="lp-demo" id="demo" aria-labelledby="demo-title">
+    <div class="lp-demo-head">
+      <h2 id="demo-title">What is KaamSetu? See it in 22 seconds.</h2>
+      <p>KaamSetu helps you email many recruiters without sounding like spam: <b>import contacts</b>, <b>tailor your resume</b> to each job, then <b>send from your own Gmail</b> and see the real status of every message.</p>
+    </div>
+    <div class="lp-demo-frame">
+      <video controls playsinline preload="metadata" poster="{% static 'img/demo-poster.jpg' %}" aria-label="KaamSetu product tour: contacts, templates, resume tailoring and campaign status">
+        <source src="{% static 'video/kaamsetu-demo.mp4' %}" type="video/mp4">
+        Your browser can't play this video. KaamSetu lets you import recruiter contacts, tailor your resume to each job, and send from your own Gmail.
+      </video>
+    </div>
+    <ol class="lp-demo-steps">
+      <li><b>1. Import</b><span>Paste or upload recruiter emails</span></li>
+      <li><b>2. Tailor</b><span>Match your resume to the job, no invented facts</span></li>
+      <li><b>3. Send</b><span>From your Gmail, with a real status per message</span></li>
+    </ol>
   </section>
 
   {# ───── TRUST STRIP ───── #}
